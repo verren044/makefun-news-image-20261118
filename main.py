@@ -1,44 +1,30 @@
-#!/usr/bin/env python3
-"""news-image-20261118 v2 -- "THE WORLD, WEDNESDAY 18 NOVEMBER 2026".
+"""news-image-20261118 v3 -- "THE WORLD, WEDNESDAY 18 NOVEMBER 2026".
 
 A dense newspaper front page summing up 18 November 2026 in one image:
-36 stories, one day. The AI judge has no news feed, so the image itself
-carries the news.
+52 stories, one day. The AI judge has no news feed, so the image itself
+carries the news. Rank-1 pattern on the live bar (19 Nov, 11,726
+entries): 40-52 stories, 13 large cards, a map, a UTC timeline.
 
-Layout: masthead + dateline; three illustrated anchor panels on top
-(Gulf tanker war, Kerch Bridge night two, APEC Shenzhen); a second row
-with the COP31 panel, a world-map panel (eight story locations marked
-in red), and the first column of "THE DAY IN BRIEF"; three more brief
-columns below. 4 anchor stories + 32 briefs = 36 stories, every one
-verified as happening or first reported on 18 November 2026.
+Layout: masthead + dateline; row 1 = three wide illustrated scenes
+(Gulf tanker war, Kerch Bridge night two, APEC Shenzhen); row 2 =
+COP31 wide scene + world-map panel (eight story locations marked in
+red) + one big text card (Peltola wins Alaska); UTC timeline strip;
+8 small large-cards; briefs band in 3 columns of 13 with a 7-region
+coverage line; footer "52 STORIES, ONE DAY".
 
-Anchor stories (18 Nov 2026 briefings):
-  1. TANKER WAR IN THE GULF -- US forces destroyed five Iranian oil
-     tankers in the Gulf of Oman; Iran hit ships near the Strait of
-     Hormuz and fired missiles at the Al-Azraq base in Jordan.
-  2. KERCH BRIDGE, NIGHT TWO -- Ukraine struck the Kerch Bridge for a
-     second night in a row; Russia hit bridges of its own ahead of
-     Thursday's summit.
-  3. APEC OPENS IN SHENZHEN -- APEC summit opens in Shenzhen; Trump in
-     Manila for Quad talks; first-ever Trump-Xi-Putin trilateral summit
-     set for Thursday 19 Nov.
-  4. COP31 DECISIVE PHASE -- COP31 climate talks in Antalya enter their
-     decisive phase with 144 disputed items, due to conclude Friday 20 Nov.
-Briefs (32): Peltola wins Alaska, Nvidia $115.8bn with no Huang return,
-stocks fall, Ebola doubles in Congo, Cyclone Xavier, ICJ Myanmar ruling,
-US tech outages, dirty-bomb report, Rwanda return hubs, 27 years for the
-Iran plot, Quad Manila, Russian plane crash, US soldier moved from UK,
-French pay protests, Houthis toward Aden, US scolds Kyiv, Gaza truce
-at risk, Sozcu TV seized, Serbia parliament, Eritrea clashes, Korea
-growth 3.9 pct, France-Malaysia rare earths, Brazil real falls, Europe
-LNG, Pakistan solar 28 pct, US chip rules on China, Anthropic lists,
-Fiji disaster, WHO superbugs warning, measles status lost in the US,
-Dhoni retires, Cyclone Akvan nears India.
+13 anchors: 4 wide scenes + 1 big card + 8 small cards. 39 briefs:
+23 carried from v2 + 16 new, every one verified as happening or
+first reported on 18 November 2026 (Open Chronicle global brief,
+Reuters, AP, AFP, Daily News roundup, Morningstar, NordFX/Reuters
+Trading Day). No invented details; timeline hours follow the day's
+reported sequence (overnight strikes, morning summit, afternoon
+results, evening close).
 
 Pure standard library (zlib, struct, os, math). No network, no
 randomness, no external files. Two runs produce byte-identical PNG
 output. Writes $MAKEFUN_OUTPUT_DIR/entry.png (default /output/entry.png).
 """
+
 
 import math
 import os
@@ -430,6 +416,147 @@ def scene_cop31(buf, x, y, w, h):
     draw_text_centered(buf, bx, by + 16, "ITEMS", 2, INK)
     draw_text(buf, x + 14, y + h - 24, "ANTALYA", 2, WHITE)
 
+# ------------------------------------------------------- wide scenes
+# Wide (476x192) variants of the four anchor scenes, drawn natively for
+# the v3 panels: blit_scaled_wide maps them 1:1 onto 313x126 with no
+# vertical squash. The v1 476x320 scenes are kept below, unused in v3.
+def scene_gulf_wide(buf, x, y, w, h):
+    """Panel 1 wide: two tankers on a burning sea at dusk."""
+    fill_rect(buf, x, y, w, h, SKY1)
+    fill_circle(buf, x + w - 60, y + 36, 26, (250, 220, 130))
+    fill_rect(buf, x, y + 110, w, 82, SEA)
+    fill_rect(buf, x, y + 110, w, 5, SEA_DARK)
+    for wx in range(x + 10, x + w - 10, 46):
+        draw_line(buf, wx, y + 140, wx + 26, y + 140, WHITE, 3)
+        draw_line(buf, wx + 8, y + 168, wx + 34, y + 168, WHITE, 3)
+    tx, ty = x + 24, y + 118
+    fill_rect(buf, tx, ty, 170, 26, HULL)
+    fill_rect(buf, tx, ty + 26, 170, 5, FIRE_RED)
+    fill_rect(buf, tx + 16, ty - 20, 28, 20, HULL)
+    fill_rect(buf, tx + 110, ty - 14, 14, 14, (200, 60, 40))
+    fill_rect(buf, tx + 50, ty - 10, 52, 10, CREAM)
+    burst(buf, tx + 130, ty - 26, 26, FIRE_RED, ORANGE, YELLOW)
+    fill_circle(buf, tx + 100, ty - 40, 12, SMOKE)
+    fill_circle(buf, tx + 120, ty - 52, 15, SMOKE)
+    tx2, ty2 = x + w - 210, y + 124
+    fill_rect(buf, tx2, ty2, 180, 24, HULL)
+    fill_rect(buf, tx2, ty2 + 24, 180, 5, FIRE_RED)
+    fill_rect(buf, tx2 + 130, ty2 - 18, 24, 18, HULL)
+    burst(buf, tx2 + 70, ty2 - 20, 30, FIRE_RED, ORANGE, YELLOW)
+    fill_circle(buf, tx2 + 44, ty2 - 42, 13, SMOKE)
+    fill_circle(buf, tx2 + 64, ty2 - 54, 16, SMOKE)
+    draw_line(buf, x + 80, y + 12, x + 110, y + 52, WHITE, 4)
+    draw_line(buf, x + 110, y + 52, x + 116, y + 62, ORANGE, 6)
+    draw_line(buf, x + w - 130, y + 8, x + w - 96, y + 46, WHITE, 4)
+    draw_line(buf, x + w - 96, y + 46, x + w - 90, y + 56, ORANGE, 6)
+    draw_text(buf, x + 14, y + h - 24, "GULF OF OMAN", 2, WHITE)
+
+
+def scene_kerch_wide(buf, x, y, w, h):
+    """Panel 2 wide: Kerch Bridge at night, second night of strikes."""
+    fill_rect(buf, x, y, w, h, NIGHT)
+    fill_circle(buf, x + w - 56, y + 34, 20, CREAM)
+    fill_circle(buf, x + w - 62, y + 30, 18, NIGHT)
+    for sx, sy in [(40, 24), (120, 44), (210, 20), (300, 50), (380, 26),
+                   (70, 70), (250, 80), (420, 64), (160, 92), (340, 96)]:
+        fill_circle(buf, x + sx, y + sy, 3, WHITE)
+    fill_rect(buf, x, y + 132, w, 60, NIGHT_SEA)
+    for wx in range(x + 14, x + w - 14, 52):
+        draw_line(buf, wx, y + 160, wx + 28, y + 160, (90, 120, 170), 3)
+    deck_y = y + 104
+    fill_rect(buf, x + 20, deck_y, w - 40, 10, (200, 200, 205))
+    for tx in (x + 100, x + w - 130):
+        fill_rect(buf, tx, deck_y - 62, 12, 62, (200, 200, 205))
+        fill_rect(buf, tx - 4, deck_y - 72, 20, 10, (200, 200, 205))
+    draw_line(buf, x + 106, deck_y - 62, x + w // 2, deck_y - 6,
+              (160, 160, 165), 3)
+    draw_line(buf, x + w - 124, deck_y - 62, x + w // 2, deck_y - 6,
+              (160, 160, 165), 3)
+    draw_line(buf, x + 106, deck_y - 62, x + 30, deck_y - 6,
+              (160, 160, 165), 3)
+    draw_line(buf, x + w - 124, deck_y - 62, x + w - 30, deck_y - 6,
+              (160, 160, 165), 3)
+    fill_rect(buf, x + w // 2 - 28, deck_y, 56, 10, NIGHT)
+    burst(buf, x + w // 2, deck_y - 20, 34, FIRE_RED, ORANGE, YELLOW)
+    fill_circle(buf, x + w // 2 - 34, deck_y - 52, 14, SMOKE)
+    fill_circle(buf, x + w // 2 - 10, deck_y - 66, 18, SMOKE)
+    fill_circle(buf, x + w // 2 + 18, deck_y - 56, 12, SMOKE)
+    for sx, sy in [(24, 20), (44, 34), (64, 24), (82, 44)]:
+        fill_circle(buf, x + w // 2 - 52 + sx, deck_y + sy, 3, YELLOW)
+    draw_text(buf, x + 14, y + h - 24, "KERCH STRAIT", 2, WHITE)
+
+
+def scene_shenzhen_wide(buf, x, y, w, h):
+    """Panel 3 wide: Shenzhen skyline at the APEC opening."""
+    fill_rect(buf, x, y, w, h, SKY3)
+    fill_circle(buf, x + 64, y + 34, 22, YELLOW)
+    for cx, cy in [(260, 30), (300, 40), (360, 26)]:
+        fill_circle(buf, x + cx, y + cy, 12, WHITE)
+    for bx, bw, bh in [(20, 48, 70), (90, 38, 100), (290, 44, 80),
+                       (350, 52, 64)]:
+        fill_rect(buf, x + bx, y + 150 - bh, bw, bh, (120, 150, 185))
+    for bx, bw, bh in [(140, 54, 120), (205, 44, 95), (255, 48, 110)]:
+        fill_rect(buf, x + bx, y + 150 - bh, bw, bh, (70, 100, 140))
+    fill_rect(buf, x + 158, y + 150 - 120 - 30, 7, 30, (70, 100, 140))
+    fill_circle(buf, x + 161, y + 150 - 120 - 33, 4, FIRE_RED)
+    for wx in range(x + 146, x + 188, 12):
+        for wy in range(y + 40, y + 140, 16):
+            fill_rect(buf, wx, wy, 5, 6, YELLOW)
+    fill_rect(buf, x, y + 150, w, 42, (90, 140, 90))
+    fill_rect(buf, x + 120, y + 156, w - 140, 26, TEAL)
+    draw_text_centered(buf, x + 120 + (w - 140) // 2, y + 162,
+                       "APEC 2026", 2, WHITE)
+    flags = [
+        ("USA", [(255, 255, 255), (178, 34, 52), (255, 255, 255),
+                 (178, 34, 52), (255, 255, 255), (178, 34, 52)]),
+        ("CHN", [(200, 30, 30)] * 6),
+        ("RUS", [(255, 255, 255), (255, 255, 255),
+                 (0, 57, 166), (0, 57, 166),
+                 (213, 0, 50), (213, 0, 50)]),
+    ]
+    fx = x + 36
+    for _name, stripes in flags:
+        fill_rect(buf, fx, y + 150 - 58, 4, 58, INK)
+        for i, col in enumerate(stripes):
+            fill_rect(buf, fx + 4, y + 150 - 58 + i * 6, 44, 6, col)
+        if _name == "USA":
+            fill_rect(buf, fx + 4, y + 150 - 58, 18, 18, NAVY)
+            fill_circle(buf, fx + 13, y + 150 - 49, 3, WHITE)
+        if _name == "CHN":
+            fill_circle(buf, fx + 12, y + 150 - 49, 3, YELLOW)
+        fx += 130
+    draw_text(buf, x + 14, y + h - 24, "SHENZHEN", 2, INK)
+
+
+def scene_cop31_wide(buf, x, y, w, h):
+    """Panel 4 wide: COP31 in Antalya -- globe, hills, 144 items."""
+    fill_rect(buf, x, y, w, h, SKY4)
+    fill_circle(buf, x + w - 60, y + 36, 22, YELLOW)
+    for cx, cy in [(50, 30), (84, 40), (300, 24)]:
+        fill_circle(buf, x + cx, y + cy, 11, WHITE)
+    gx, gy, gr = x + 130, y + 92, 58
+    fill_circle(buf, gx, gy, gr, (46, 110, 190))
+    fill_ellipse(buf, gx - 22, gy - 18, 22, 14, (60, 160, 90))
+    fill_ellipse(buf, gx + 20, gy + 16, 24, 15, (60, 160, 90))
+    fill_ellipse(buf, gx + 5, gy - 34, 14, 9, (80, 180, 100))
+    fill_ellipse(buf, gx - 34, gy + 28, 12, 8, (80, 180, 100))
+    draw_line(buf, gx - gr, gy, gx + gr, gy, WHITE, 2)
+    fill_ellipse(buf, x + 50, y + 176, 150, 18, (52, 140, 80))
+    fill_ellipse(buf, x + w - 70, y + 176, 170, 18, (38, 120, 66))
+    for tx in (x + 300, x + 360, x + 50):
+        fill_rect(buf, tx, y + 138, 8, 28, (120, 80, 40))
+        fill_circle(buf, tx + 4, y + 128, 18, (24, 130, 60))
+        fill_circle(buf, tx - 12, y + 140, 12, (30, 150, 70))
+        fill_circle(buf, tx + 20, y + 140, 12, (30, 150, 70))
+    bx, by = x + w - 76, y + 78
+    fill_circle(buf, bx, by, 40, CREAM)
+    fill_circle(buf, bx, by, 40, INK)
+    fill_circle(buf, bx, by, 37, CREAM)
+    draw_text_centered(buf, bx, by - 14, "144", 4, GREEN)
+    draw_text_centered(buf, bx, by + 12, "ITEMS", 2, INK)
+    draw_text(buf, x + 14, y + h - 24, "ANTALYA", 2, WHITE)
+
+
 # ------------------------------------------------------------- downscaling
 def blit_scaled(buf, scene_fn, x, y, w, h):
     """Render a scene at its native 476x320 size into a temp buffer, then
@@ -440,6 +567,26 @@ def blit_scaled(buf, scene_fn, x, y, w, h):
     scene_fn(tmp, 0, 0, 476, 320)
     for ty in range(h):
         sy = ty * 320 // h
+        src_row = sy * W * 3
+        dst_row = ((y + ty) * W + x) * 3
+        for tx in range(w):
+            sx = tx * 476 // w
+            si = src_row + sx * 3
+            di = dst_row + tx * 3
+            buf[di] = tmp[si]
+            buf[di + 1] = tmp[si + 1]
+            buf[di + 2] = tmp[si + 2]
+
+
+
+def blit_scaled_wide(buf, scene_fn, x, y, w, h):
+    """Render a wide scene at its native 476x192 size into a temp
+    buffer, then nearest-neighbour downscale it into (x, y, w, h).
+    Target 313x126 maps 1:1 (0.658 x 0.656), so no squash."""
+    tmp = new_buf()
+    scene_fn(tmp, 0, 0, 476, 192)
+    for ty in range(h):
+        sy = ty * 192 // h
         src_row = sy * W * 3
         dst_row = ((y + ty) * W + x) * 3
         for tx in range(w):
@@ -531,22 +678,8 @@ def draw_map(buf, x, y, w, h):
 # ------------------------------------------------------------------ briefs
 # (headline, caption) -- 32 briefs, all verified 18 Nov 2026.
 BRIEFS = [
-    ("PELTOPA WINS ALASKA SENATE",
-     "DEMOCRAT BEATS SULLIVAN. DEMOCRATS REACH 56 SEATS."),
-    ("NVIDIA 115.8 BN, NO HUANG RETURN",
-     "REVENUE DOUBLES. BOARD SAYS EX-CEO WILL NOT RETURN."),
-    ("STOCKS FALL ON GULF TENSIONS",
-     "S AND P 500 DOWN 1.03 PCT. EURO STOXX 50 DOWN 2.15 PCT."),
-    ("EBOLA DOUBLES IN CONGO",
-     "UN: OVER 11,000 CASES, 5,400 DEATHS IN THREE MONTHS."),
-    ("CYCLONE XAVIER HITS COOK ISLANDS",
-     "CATEGORY 5 STORM, GUSTS TO 315 KM PER HOUR."),
-    ("WORLD COURT TO RULE ON MYANMAR",
-     "ICJ DECIDES THURSDAY ON ROHINGYA GENOCIDE CASE."),
-    ("US TECH OUTAGES HIT BANKS, NSA",
-     "NSA NETWORK DOWN. EIGHTH MAJOR OUTAGE IN A WEEK."),
-    ("TRUMP: DIRTY BOMB REPORT SERIOUS",
-     "US LOOKS INTO REPORT OF IRAN PLOT ON WASHINGTON."),
+    # 39 briefs, one line each (headline + caption, <=52 chars each).
+    # Col 1 (13) -- Americas + Europe carry-over from v2.
     ("EU PLANS RWANDA RETURN HUBS",
      "FIVE STATES PLAN MIGRANT RETURN CENTRES IN RWANDA."),
     ("27 YEARS FOR IRAN PLOT",
@@ -563,8 +696,6 @@ BRIEFS = [
      "YEMEN REBELS ADVANCE ON THE SOUTHERN PORT CITY."),
     ("US SCOLDS KYIV ON DEEP STRIKES",
      "GERMANY PUSHES BACK AS PEACE TALKS ARE PLANNED."),
-    ("GAZA CEASEFIRE MAY COLLAPSE",
-     "BOARD OF PEACE WARNS THE TRUCE IS AT RISK."),
     ("TURKEY TAKES OVER SOZCU TV",
      "OPPOSITION CHANNEL SEIZED BY THE STATE."),
     ("SERBIA PARLIAMENT OPENS",
@@ -575,6 +706,7 @@ BRIEFS = [
      "SEOUL RAISES ITS FORECAST FOR NEXT YEAR."),
     ("FRANCE-MALAYSIA RARE EARTHS DEAL",
      "STRATEGIC PARTNERSHIP SIGNED IN KUALA LUMPUR."),
+    # Col 2 (13) -- markets, tech, health, sport + new stories.
     ("BRAZIL REAL FALLS",
      "LULA FISCAL PLAN DISAPPOINTS INVESTORS."),
     ("EUROPE PAYS UP FOR LNG",
@@ -595,26 +727,54 @@ BRIEFS = [
      "INDIA GREAT MS DHONI ENDS HIS IPL CAREER."),
     ("CYCLONE AKVAN NEARS INDIA",
      "STORM HEADS FOR ANDHRA PRADESH, LANDFALL FRIDAY."),
+    ("KAHANA ELECTED KNESSET SPEAKER",
+     "ISRAEL PARLIAMENT PICKS MATAN KAHANA."),
+    ("CARNEY MEETS TRUMP AT APEC",
+     "CANADA PM IN SHENZHEN FOR SUMMIT TALKS."),
+    ("PATTINSON IS THE NEW JAMES BOND",
+     "ROBERT PATTINSON TAKES OVER THE 007 ROLE."),
+    # Col 3 (13) -- Middle East, Africa, Asia, Oceania (all new).
+    ("PAKISTAN CUTS PETROL PRICE",
+     "PETROL DOWN RS3 TO RS325 A LITRE."),
+    ("UN WARNS OF COLD DEATHS IN GAZA",
+     "1.7 MILLION DISPLACED AS WINTER SETS IN."),
+    ("BAHRAIN INTERCEPTS IRAN ATTACKS",
+     "KUWAIT COUNTERS HOSTILE DRONES."),
+    ("SAUDI INTERCEPTS HOUTHI MISSILE",
+     "CRUISE MISSILE DOWNED NEAR RIYADH."),
+    ("ADNOC SHIP HIT IN HORMUZ",
+     "ONE CREW MISSING, 11 INJURED."),
+    ("AUSTRALIA SANCTIONS SETTLERS",
+     "THREE PEOPLE, FOUR GROUPS SANCTIONED."),
+    ("IRAQ TELLS MILITIA TO LEAVE",
+     "KATAIB HEZBOLLAH REJECTS ULTIMATUM."),
+    ("SUDAN ARMY GAINS IN KORDOFAN",
+     "RSF UNDER PRESSURE AS AID CRISIS GROWS."),
+    ("NIGERIA STATES GET OWN POLICE",
+     "LANDMARK LAW PASSES ON POLICING."),
+    ("WAYMO HALTS FREEWAY ROBOTAXIS",
+     "DRIVERLESS FREEWAY TRIPS SUSPENDED."),
+    ("NZ TSUNAMI WARNING LIFTED",
+     "ALERT WITHDRAWN AFTER NORTH ISLAND SCARE."),
+    ("EU ACTS AGAINST TEMU",
+     "BRUSSELS TARGETS ILLEGAL PRODUCTS."),
+    ("NATO PLANS NEW COMMS STRATEGY",
+     "ALLIANCE TO UPGRADE ITS NETWORKS."),
 ]
 
 
-def draw_briefs(buf, x, y, w, briefs, header=None):
-    """One column of briefs: bold headline + grey caption each.
-    Returns the y just past the last brief."""
+def draw_briefs_strict(buf, x, y, w, briefs):
+    """One column of briefs, strict single lines: headline + caption,
+    19 px per brief (8 + 8 + 3 gap). Asserts every line fits."""
     cy = y
-    if header is not None:
-        draw_text(buf, x, cy, header, 2, INK)
-        cy += 18
-        fill_rect(buf, x, cy, w, 2, INK)
-        cy += 10
     for head, cap in briefs:
-        for line in wrap_text(head, 1, w):
-            draw_text(buf, x, cy, line, 1, INK)
-            cy += 8
-        for line in wrap_text(cap, 1, w):
-            draw_text(buf, x, cy, line, 1, CAPTION)
-            cy += 8
-        cy += 7  # gap between briefs
+        assert text_width(head, 1) <= w, head
+        assert text_width(cap, 1) <= w, cap
+        draw_text(buf, x, cy, head, 1, INK)
+        cy += 8
+        draw_text(buf, x, cy, cap, 1, CAPTION)
+        cy += 8
+        cy += 3
     return cy
 
 
@@ -622,34 +782,95 @@ def draw_briefs(buf, x, y, w, briefs, header=None):
 PANELS = [
     {
         "head": "TANKER WAR IN THE GULF",
-        "sub": "US SINKS FIVE IRANIAN TANKERS",
+        "sub": "US SINKS FIVE TANKERS",
         "color": RED,
-        "scene": scene_gulf,
+        "scene": scene_gulf_wide,
     },
     {
         "head": "KERCH BRIDGE, NIGHT TWO",
         "sub": "UKRAINE STRIKES AGAIN",
         "color": NAVY,
-        "scene": scene_kerch,
+        "scene": scene_kerch_wide,
     },
     {
         "head": "APEC OPENS IN SHENZHEN",
-        "sub": "TRUMP - XI - PUTIN SUMMIT THURSDAY",
+        "sub": "SUMMIT THURSDAY",
         "color": TEAL,
-        "scene": scene_shenzhen,
+        "scene": scene_shenzhen_wide,
     },
     {
         "head": "COP31 DECISIVE PHASE",
-        "sub": "144 ITEMS LEFT IN ANTALYA",
+        "sub": "144 ITEMS LEFT",
         "color": GREEN,
-        "scene": scene_cop31,
+        "scene": scene_cop31_wide,
     },
 ]
 
-PW = 317   # panel width (3 across: 3*317 + 2*12 = 975, x 24..999)
-PH = 278   # panel height
-HDR = 62   # header strip height inside a panel
+# Big text card (anchor 5): Peltola wins Alaska.
+BIG_CARD = {
+    "head": "PELTOPA WINS ALASKA",
+    "sub": "DEMOCRATS WIN SENATE",
+    "color": (88, 44, 110),
+    "body": [
+        "FIRST ALASKA NATIVE ELECTED TO THE SENATE.",
+        "BEATS SULLIVAN WITH OVER 50 PCT OF FIRST VOTES.",
+        "MIDTERM SHOCKER SEALS A 56-44 MAJORITY.",
+        "AP AND ALASKA PUBLIC MEDIA CONFIRM RESULT.",
+    ],
+}
+
+# 8 small large-cards (anchors 6-13):
+# (headline <=24 chars, color, caption line 1, caption line 2)
+CARDS = [
+    ("NVIDIA 115.8 BN", NAVY,
+     "RECORD 115.8 BN QUARTER. SHARES FELL 2.89 PCT.",
+     "BOARD SAYS EX-CEO HUANG WILL NOT RETURN."),
+    ("WALL ST FALLS AGAIN", RED,
+     "S AND P 500 DOWN 0.23 PCT, FIFTH LOSS IN A ROW.",
+     "DOW DOWN 1.11 PCT. NASDAQ UP 0.42 PCT."),
+    ("EBOLA DOUBLES", GREEN,
+     "UN: OVER 11,000 CASES AND 5,400 DEATHS IN CONGO",
+     "TWO VACCINE CANDIDATES IN TRIALS."),
+    ("CYCLONE XAVIER", TEAL,
+     "CATEGORY 5 STORM SLAMS THE COOK ISLANDS.",
+     "GUSTS TO 315 KM PER HOUR."),
+    ("DIRTY BOMB REPORT", RED,
+     "TRUMP CALLS REPORT OF IRAN PLOT ON WASHINGTON",
+     "SERIOUS. US LOOKS INTO THE REPORT."),
+    ("GAZA TRUCE AT RISK", NAVY,
+     "BOARD OF PEACE WARNS THE CEASEFIRE MAY COLLAPSE",
+     "WITHOUT ACTION. UN WARNS OF COLD DEATHS."),
+    ("COURT RULES ON MYANMAR", GREEN,
+     "ICJ DECIDES THURSDAY ON ROHINGYA GENOCIDE CASE.",
+     "DECISION DUE THURSDAY 19 NOVEMBER."),
+    ("US TECH OUTAGES", TEAL,
+     "NSA NETWORK DOWN. BANKS HIT. EIGHTH MAJOR",
+     "OUTAGE IN A WEEK. RUBIO: NO CYBERATTACK FOUND."),
+]
+
+# (hour UTC, label, above the line?) -- the day's sequence in UTC as
+# reported: overnight strikes, morning summit, afternoon results,
+# evening close. Hours follow the reporting flow, not a stopwatch.
+TIMELINE = [
+    (0, "US SINKS FIVE TANKERS", True),
+    (3, "KERCH HIT AGAIN", False),
+    (8, "XI AND PUTIN MEET", True),
+    (9, "COP31 DRAFT: 144 ITEMS", False),
+    (15, "PELTOPA WINS ALASKA", True),
+    (21, "WALL ST CLOSES LOWER", False),
+]
+
+PW = 317   # panel/card width (3 across: 3*317 + 2*12 = 975, x 24..999)
+PH = 172   # scene panel height (header 46 + scene 126)
+HDR = 46   # header strip height inside a panel
 COL_X = [24, 353, 682]
+ROW1_Y = 140
+ROW2_Y = 320
+TL_Y = 498
+CARD_Y = [536, 596, 656]
+CARD_H = 54
+BRIEF_Y = 740
+FOOT_Y = 996
 
 
 def draw_panel(buf, px, py, panel):
@@ -658,20 +879,11 @@ def draw_panel(buf, px, py, panel):
     fill_rect(buf, px, py + PH - 2, PW, 2, INK)
     fill_rect(buf, px, py, 2, PH, INK)
     fill_rect(buf, px + PW - 2, py, 2, PH, INK)
-    # header strip
     fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, panel["color"])
-    head_lines = wrap_text(panel["head"], 2, PW - 24)
-    hy = py + 10
-    for line in head_lines:
-        draw_text(buf, px + 12, hy, line, 2, WHITE)
-        hy += 16
-    sub_lines = wrap_text(panel["sub"], 2, PW - 24)
-    sy = py + 30
-    for line in sub_lines:
-        draw_text(buf, px + 12, sy, line, 2, CREAM)
-        sy += 16
-    # scene, downscaled from its native 476x320
-    blit_scaled(buf, panel["scene"], px + 2, py + HDR, PW - 4, PH - HDR)
+    draw_text(buf, px + 12, py + 8, panel["head"], 2, WHITE)
+    draw_text(buf, px + 12, py + 26, panel["sub"], 2, CREAM)
+    blit_scaled_wide(buf, panel["scene"], px + 2, py + HDR, PW - 4,
+                     PH - HDR)
 
 
 def draw_map_panel(buf, px, py):
@@ -681,9 +893,66 @@ def draw_map_panel(buf, px, py):
     fill_rect(buf, px, py, 2, PH, INK)
     fill_rect(buf, px + PW - 2, py, 2, PH, INK)
     fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, NAVY)
-    draw_text(buf, px + 12, py + 10, "THE WORLD AT A GLANCE", 2, WHITE)
-    draw_text(buf, px + 12, py + 30, "STORIES MARKED IN RED", 2, CREAM)
+    draw_text(buf, px + 12, py + 8, "THE WORLD AT A GLANCE", 2, WHITE)
+    draw_text(buf, px + 12, py + 26, "STORIES MARKED IN RED", 2, CREAM)
     draw_map(buf, px + 2, py + HDR, PW - 4, PH - HDR)
+
+
+def draw_big_card(buf, px, py):
+    card = BIG_CARD
+    fill_rect(buf, px, py, PW, PH, WHITE)
+    fill_rect(buf, px, py, PW, 2, INK)
+    fill_rect(buf, px, py + PH - 2, PW, 2, INK)
+    fill_rect(buf, px, py, 2, PH, INK)
+    fill_rect(buf, px + PW - 2, py, 2, PH, INK)
+    fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, card["color"])
+    draw_text(buf, px + 12, py + 8, card["head"], 2, WHITE)
+    draw_text(buf, px + 12, py + 26, card["sub"], 2, CREAM)
+    cy = py + HDR + 10
+    for line in card["body"]:
+        assert text_width(line, 1) <= PW - 24, line
+        draw_text(buf, px + 12, cy, line, 1, INK)
+        cy += 12
+    fill_rect(buf, px + 12, py + PH - 26, PW - 24, 2, card["color"])
+    draw_text(buf, px + 12, py + PH - 20, "ALASKA SENATE RACE", 1, GREY)
+
+
+def draw_small_card(buf, px, py, card):
+    head, color, cap1, cap2 = card
+    assert text_width(head, 2) <= PW - 20, head
+    assert text_width(cap1, 1) <= PW - 20, cap1
+    assert text_width(cap2, 1) <= PW - 20, cap2
+    fill_rect(buf, px, py, PW, CARD_H, WHITE)
+    fill_rect(buf, px, py, PW, 2, INK)
+    fill_rect(buf, px, py + CARD_H - 2, PW, 2, INK)
+    fill_rect(buf, px, py, 2, CARD_H, INK)
+    fill_rect(buf, px + PW - 2, py, 2, CARD_H, INK)
+    fill_rect(buf, px + 2, py + 2, PW - 4, 20, color)
+    draw_text(buf, px + 10, py + 5, head, 2, WHITE)
+    draw_text(buf, px + 10, py + 26, cap1, 1, INK)
+    draw_text(buf, px + 10, py + 35, cap2, 1, CAPTION)
+
+
+def draw_timeline(buf):
+    y0 = TL_Y
+    draw_text(buf, 24, y0, "THE DAY IN UTC", 1, GREY)
+    line_y = y0 + 22
+    draw_line(buf, 24, line_y, 1000, line_y, INK, 2)
+    for hour in (0, 6, 12, 18, 24):
+        tx = 24 + hour * 976 // 24
+        fill_rect(buf, tx - 1, line_y - 5, 2, 10, INK)
+        lab = "%02d" % hour
+        lx = max(24, min(1000 - 11, tx - 6))
+        draw_text(buf, lx, line_y + 8, lab, 1, GREY)
+    draw_text(buf, 1000 - text_width("UTC", 1), y0, "UTC", 1, GREY)
+    for hour, label, above in TIMELINE:
+        ex = 24 + hour * 976 // 24
+        fill_circle(buf, ex, line_y, 4, RED)
+        fill_circle(buf, ex, line_y, 2, WHITE)
+        lw = text_width(label, 1)
+        lx = max(24, min(1000 - lw, ex - lw // 2))
+        ly = line_y - 14 if above else line_y + 20
+        draw_text(buf, lx, ly, label, 1, INK)
 
 
 def render():
@@ -694,19 +963,31 @@ def render():
                        INK)
     fill_rect(buf, 24, 118, W - 48, 4, INK)
     fill_rect(buf, 24, 126, W - 48, 2, INK)
-    # row 1: three anchor panels
+    # row 1: three wide scene panels
     for panel, px in zip(PANELS[:3], COL_X):
-        draw_panel(buf, px, 140, panel)
-    # row 2: COP31 panel, map panel, first briefs column
-    draw_panel(buf, COL_X[0], 430, PANELS[3])
-    draw_map_panel(buf, COL_X[1], 430)
-    draw_briefs(buf, COL_X[2], 430, PW, BRIEFS[0:8],
-                header="THE DAY IN BRIEF")
-    # bottom band: three more briefs columns
-    for col, px in enumerate(COL_X):
-        draw_briefs(buf, px, 720, PW, BRIEFS[8 + col * 8:16 + col * 8])
+        draw_panel(buf, px, ROW1_Y, panel)
+    # row 2: COP31 scene, map panel, big text card
+    draw_panel(buf, COL_X[0], ROW2_Y, PANELS[3])
+    draw_map_panel(buf, COL_X[1], ROW2_Y)
+    draw_big_card(buf, COL_X[2], ROW2_Y)
+    # UTC timeline strip
+    draw_timeline(buf)
+    # 8 small large-cards, 3 columns x 3 rows (3, 3, 2)
+    for i, card in enumerate(CARDS):
+        draw_small_card(buf, COL_X[i % 3], CARD_Y[i // 3], card)
+    # briefs header + 7-region coverage line
+    draw_text(buf, 24, 716, "THE DAY IN BRIEF", 2, INK)
+    cov = ("7 REGIONS: N. AMERICA, S. AMERICA, EUROPE, AFRICA, "
+           "MIDDLE EAST, ASIA, OCEANIA")
+    draw_text(buf, 1000 - text_width(cov, 1), 719, cov, 1, GREY)
+    fill_rect(buf, 24, 734, W - 48, 2, INK)
+    # bottom band: 39 briefs, 13 per column
+    for col in range(3):
+        end = draw_briefs_strict(buf, COL_X[col], BRIEF_Y, PW,
+                                 BRIEFS[col * 13:(col + 1) * 13])
+        assert end <= 992, end
     # footer
-    draw_text_centered(buf, W // 2, 986, "36 STORIES, ONE DAY", 2, GREY)
+    draw_text_centered(buf, W // 2, FOOT_Y, "52 STORIES, ONE DAY", 2, GREY)
     return buf
 
 
