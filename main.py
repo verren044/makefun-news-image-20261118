@@ -1,1022 +1,505 @@
-"""news-image-20261118 v3 -- "THE WORLD, WEDNESDAY 18 NOVEMBER 2026".
+"""THE WORLD, WEDNESDAY 18 NOVEMBER 2026 - the day's world news in one image.
 
-A dense newspaper front page summing up 18 November 2026 in one image:
-52 stories, one day. The AI judge has no news feed, so the image itself
-carries the news. Rank-1 pattern on the live bar (19 Nov, 11,726
-entries): 40-52 stories, 13 large cards, a map, a UTC timeline.
-
-Layout: masthead + dateline; row 1 = three wide illustrated scenes
-(Gulf tanker war, Kerch Bridge night two, APEC Shenzhen); row 2 =
-COP31 wide scene + world-map panel (eight story locations marked in
-red) + one big text card (Peltola wins Alaska); UTC timeline strip;
-8 small large-cards; briefs band in 3 columns of 13 with a 7-region
-coverage line; footer "52 STORIES, ONE DAY".
-
-13 anchors: 4 wide scenes + 1 big card + 8 small cards. 39 briefs:
-23 carried from v2 + 16 new, every one verified as happening or
-first reported on 18 November 2026 (Open Chronicle global brief,
-Reuters, AP, AFP, Daily News roundup, Morningstar, NordFX/Reuters
-Trading Day). No invented details; timeline hours follow the day's
-reported sequence (overnight strikes, morning summit, afternoon
-results, evening close).
-
-Pure standard library (zlib, struct, os, math). No network, no
-randomness, no external files. Two runs produce byte-identical PNG
-output. Writes $MAKEFUN_OUTPUT_DIR/entry.png (default /output/entry.png).
+Pure stdlib Python (math, os, struct, zlib). Deterministic: no network,
+no randomness, no clock. Renders output.png (1024x1024) in the cwd.
+52 stories: 13 anchors (4 illustrated scenes, 1 big card, 8 small cards)
++ 39 briefs, plus a world map and a UTC timeline.
 """
-
-
 import math
 import os
 import struct
 import zlib
 
-W = 1024
-H = 1024
-
-# ---------------------------------------------------------------- palette
-PAPER = (247, 242, 231)   # newsprint cream
-INK = (20, 20, 20)        # near-black ink
-GREY = (110, 108, 100)
-CAPTION = (70, 70, 68)    # brief captions
+W, H = 1024, 1024
+PAPER = (244, 238, 222)
+PAPER2 = (250, 246, 232)
+INK = (22, 22, 22)
+GREY = (110, 106, 94)
+RED = (176, 32, 32)
+DARKRED = (140, 20, 20)
+BLUE = (38, 78, 150)
+DARKBLUE = (24, 44, 96)
+SKY = (168, 200, 232)
+PALESKY = (208, 224, 240)
+SEA = (28, 68, 128)
+DEEPSEA = (18, 48, 96)
+GREEN = (46, 120, 66)
+LAND = (198, 188, 148)
+GOLD = (212, 160, 40)
+ORANGE = (232, 110, 20)
+YELLOW = (240, 200, 60)
 WHITE = (255, 255, 255)
-CREAM = (255, 248, 220)
-RED = (140, 29, 24)       # panel 1 header / flags
-NAVY = (27, 42, 74)       # panel 2 header / night sky
-TEAL = (14, 74, 92)       # panel 3 header
-GREEN = (30, 107, 52)     # panel 4 header
-MAP_BLUE = (168, 205, 232)  # map ocean
-MAP_LAND = (70, 140, 90)  # map continents
-MAP_DOT = (200, 40, 28)   # map story markers
-SKY1 = (242, 200, 121)    # gulf dusk sky
-SEA = (31, 111, 168)      # gulf sea
-SEA_DARK = (18, 82, 130)
-NIGHT = (16, 27, 51)      # kerch night sky
-NIGHT_SEA = (11, 21, 38)
-SKY3 = (168, 205, 232)    # shenzhen sky
-SKY4 = (196, 226, 205)    # antalya sky
-ORANGE = (232, 116, 24)
-YELLOW = (250, 196, 48)
-FIRE_RED = (200, 52, 28)
-SMOKE = (120, 120, 118)
-HULL = (38, 38, 40)
-GOLD = (214, 164, 60)
+BLACK = (8, 8, 8)
+NIGHT = (16, 24, 56)
+MOON = (235, 232, 210)
+SMOKE = (150, 148, 142)
 
-# ------------------------------------------------------- 5x7 bitmap font
-# Every glyph hand-checked as ASCII art: '#' = ink, '.' = blank.
-# Only glyphs listed here may appear in any rendered string.
 FONT = {
-    'A': ("01110", "10001", "10001", "11111", "10001", "10001", "10001"),
-    'B': ("11110", "10001", "10001", "11110", "10001", "10001", "11110"),
-    'C': ("01110", "10001", "10000", "10000", "10000", "10001", "01110"),
-    'D': ("11110", "10001", "10001", "10001", "10001", "10001", "11110"),
-    'E': ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
-    'F': ("11111", "10000", "10000", "11110", "10000", "10000", "10000"),
-    'G': ("01110", "10001", "10000", "10111", "10001", "10001", "01111"),
-    'H': ("10001", "10001", "10001", "11111", "10001", "10001", "10001"),
-    'I': ("01110", "00100", "00100", "00100", "00100", "00100", "01110"),
-    'J': ("00111", "00010", "00010", "00010", "00010", "10010", "01100"),
-    'K': ("10001", "10010", "10100", "11000", "10100", "10010", "10001"),
-    'L': ("10000", "10000", "10000", "10000", "10000", "10000", "11111"),
-    'M': ("10001", "11011", "10101", "10101", "10001", "10001", "10001"),
-    'N': ("10001", "11001", "10101", "10011", "10001", "10001", "10001"),
-    'O': ("01110", "10001", "10001", "10001", "10001", "10001", "01110"),
-    'P': ("11110", "10001", "10001", "11110", "10000", "10000", "10000"),
-    'Q': ("01110", "10001", "10001", "10001", "10101", "10010", "01101"),
-    'R': ("11110", "10001", "10001", "11110", "10100", "10010", "10001"),
-    'S': ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
-    'T': ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
-    'U': ("10001", "10001", "10001", "10001", "10001", "10001", "01110"),
-    'V': ("10001", "10001", "10001", "10001", "10001", "01010", "00100"),
-    'W': ("10001", "10001", "10001", "10101", "10101", "11011", "10001"),
-    'X': ("10001", "10001", "01010", "00100", "01010", "10001", "10001"),
-    'Y': ("10001", "10001", "01010", "00100", "00100", "00100", "00100"),
-    'Z': ("11111", "00001", "00010", "00100", "01000", "10000", "11111"),
-    '0': ("01110", "10001", "10011", "10101", "11001", "10001", "01110"),
-    '1': ("00100", "01100", "00100", "00100", "00100", "00100", "01110"),
-    '2': ("01110", "10001", "00001", "00110", "01000", "10000", "11111"),
-    '3': ("11111", "00010", "00100", "00010", "00001", "10001", "01110"),
-    '4': ("00010", "00110", "01010", "10010", "11111", "00010", "00010"),
-    '5': ("11111", "10000", "11110", "00001", "00001", "10001", "01110"),
-    '6': ("00110", "01000", "10000", "11110", "10001", "10001", "01110"),
-    '7': ("11111", "00001", "00010", "00100", "01000", "01000", "01000"),
-    '8': ("01110", "10001", "10001", "01110", "10001", "10001", "01110"),
-    '9': ("01110", "10001", "10001", "01111", "00001", "00010", "01100"),
-    ' ': ("00000", "00000", "00000", "00000", "00000", "00000", "00000"),
-    '.': ("00000", "00000", "00000", "00000", "00000", "01100", "01100"),
-    ',': ("00000", "00000", "00000", "00000", "01100", "00100", "01000"),
-    '-': ("00000", "00000", "00000", "01110", "00000", "00000", "00000"),
-    "'": ("00100", "00100", "01000", "00000", "00000", "00000", "00000"),
-    ':': ("00000", "01100", "01100", "00000", "01100", "01100", "00000"),
-    '!': ("00100", "00100", "00100", "00100", "00100", "00000", "00100"),
-    '?': ("01110", "10001", "00001", "00110", "00100", "00000", "00100"),
-    '/': ("00001", "00010", "00010", "00100", "01000", "01000", "10000"),
+    "A": (" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"),
+    "B": ("#### ", "#   #", "#   #", "#### ", "#   #", "#   #", "#### "),
+    "C": (" ####", "#    ", "#    ", "#    ", "#    ", "#    ", " ####"),
+    "D": ("#### ", "#   #", "#   #", "#   #", "#   #", "#   #", "#### "),
+    "E": ("#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#####"),
+    "F": ("#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#    "),
+    "G": (" ####", "#    ", "#    ", "# ###", "#   #", "#   #", " ### "),
+    "H": ("#   #", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"),
+    "I": ("#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "#####"),
+    "J": ("  ###", "   # ", "   # ", "   # ", "   # ", "#  # ", " ##  "),
+    "K": ("#   #", "#  # ", "# #  ", "##   ", "# #  ", "#  # ", "#   #"),
+    "L": ("#    ", "#    ", "#    ", "#    ", "#    ", "#    ", "#####"),
+    "M": ("#   #", "## ##", "# # #", "# # #", "#   #", "#   #", "#   #"),
+    "N": ("#   #", "##  #", "##  #", "# # #", "#  ##", "#  ##", "#   #"),
+    "O": (" ### ", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "),
+    "P": ("#### ", "#   #", "#   #", "#### ", "#    ", "#    ", "#    "),
+    "Q": (" ### ", "#   #", "#   #", "#   #", "# # #", "#  # ", " ## #"),
+    "R": ("#### ", "#   #", "#   #", "#### ", "# #  ", "#  # ", "#   #"),
+    "S": (" ####", "#    ", "#    ", " ### ", "    #", "    #", "#### "),
+    "T": ("#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  "),
+    "U": ("#   #", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "),
+    "V": ("#   #", "#   #", "#   #", "#   #", "#   #", " # # ", "  #  "),
+    "W": ("#   #", "#   #", "#   #", "# # #", "# # #", "## ##", "#   #"),
+    "X": ("#   #", "#   #", " # # ", "  #  ", " # # ", "#   #", "#   #"),
+    "Y": ("#   #", "#   #", " # # ", "  #  ", "  #  ", "  #  ", "  #  "),
+    "Z": ("#####", "    #", "   # ", "  #  ", " #   ", "#    ", "#####"),
+    "0": (" ### ", "#  ##", "# # #", "##  #", "#   #", "#   #", " ### "),
+    "1": ("  #  ", " ##  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "),
+    "2": (" ### ", "#   #", "    #", "   # ", "  #  ", " #   ", "#####"),
+    "3": ("#### ", "    #", "    #", " ### ", "    #", "    #", "#### "),
+    "4": ("   # ", "  ## ", " # # ", "#  # ", "#####", "   # ", "   # "),
+    "5": ("#####", "#    ", "#### ", "    #", "    #", "#   #", " ### "),
+    "6": (" ### ", "#    ", "#    ", "#### ", "#   #", "#   #", " ### "),
+    "7": ("#####", "    #", "   # ", "  #  ", "  #  ", "  #  ", "  #  "),
+    "8": (" ### ", "#   #", "#   #", " ### ", "#   #", "#   #", " ### "),
+    "9": (" ### ", "#   #", "#   #", " ####", "    #", "    #", " ### "),
+    " ": ("     ", "     ", "     ", "     ", "     ", "     ", "     "),
+    ".": ("     ", "     ", "     ", "     ", "     ", " ##  ", " ##  "),
+    ",": ("     ", "     ", "     ", "     ", " ##  ", " ##  ", " #   "),
+    "-": ("     ", "     ", "     ", " ### ", "     ", "     ", "     "),
+    "'": ("  #  ", "  #  ", "     ", "     ", "     ", "     ", "     "),
+    ":": ("     ", " ##  ", " ##  ", "     ", " ##  ", " ##  ", "     "),
+    "!": ("  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "     ", "  #  "),
+    "?": (" ### ", "#   #", "    #", "   # ", "  #  ", "     ", "  #  "),
+    "/": ("    #", "    #", "   # ", "  #  ", " #   ", "#    ", "#    "),
 }
 
-# sanity: every glyph is 7 rows of 5 bits
-for _g in FONT.values():
-    assert len(_g) == 7 and all(len(_r) == 5 for _r in _g)
+ALLOWED = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ., -':!?/")
 
 
-def text_width(s, scale):
-    """Pixel width of s rendered at scale (6 px advance per glyph)."""
-    return len(s) * 6 * scale - scale
+def check_text(s):
+    bad = [c for c in s if c not in ALLOWED]
+    if bad:
+        raise ValueError("bad chars %r in %r" % (bad, s))
 
 
-def draw_text(buf, x, y, s, scale, color):
-    """Draw uppercase string s with top-left at (x, y). Unknown chars
-    raise KeyError -- a missing glyph must fail loudly, never garble."""
-    cx = x
-    for ch in s:
-        glyph = FONT[ch]  # KeyError on purpose if glyph missing
-        for r in range(7):
-            row = glyph[r]
-            for c in range(5):
-                if row[c] == '1':
-                    fill_rect(buf, cx + c * scale, y + r * scale,
-                              scale, scale, color)
-        cx += 6 * scale
+class Canvas:
+    def __init__(self, w, h, bg):
+        self.w = w
+        self.h = h
+        self.buf = bytearray(bytes(bg) * (w * h))
 
+    def set(self, x, y, c):
+        if 0 <= x < self.w and 0 <= y < self.h:
+            i = (y * self.w + x) * 3
+            self.buf[i] = c[0]
+            self.buf[i + 1] = c[1]
+            self.buf[i + 2] = c[2]
 
-def draw_text_centered(buf, cx, y, s, scale, color):
-    draw_text(buf, cx - text_width(s, scale) // 2, y, s, scale, color)
+    def get(self, x, y):
+        i = (y * self.w + x) * 3
+        return (self.buf[i], self.buf[i + 1], self.buf[i + 2])
 
+    def fill_rect(self, x, y, w, h, c):
+        x0 = max(0, x)
+        y0 = max(0, y)
+        x1 = min(self.w, x + w)
+        y1 = min(self.h, y + h)
+        if x1 <= x0 or y1 <= y0:
+            return
+        row = bytes(c) * (x1 - x0)
+        for yy in range(y0, y1):
+            i = (yy * self.w + x0) * 3
+            self.buf[i:i + len(row)] = row
 
-def wrap_text(s, scale, max_w):
-    """Greedy word wrap; returns list of lines fitting max_w pixels."""
-    lines = []
-    for word in s.split(' '):
-        if not lines:
-            lines.append(word)
-            continue
-        trial = lines[-1] + ' ' + word
-        if text_width(trial, scale) <= max_w:
-            lines[-1] = trial
-        else:
-            lines.append(word)
-    return lines
+    def border(self, x, y, w, h, c, t=1):
+        self.fill_rect(x, y, w, t, c)
+        self.fill_rect(x, y + h - t, w, t, c)
+        self.fill_rect(x, y, t, h, c)
+        self.fill_rect(x + w - t, y, t, h, c)
 
+    def line(self, x0, y0, x1, y1, c):
+        dx = abs(x1 - x0)
+        dy = -abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx + dy
+        while True:
+            self.set(x0, y0, c)
+            if x0 == x1 and y0 == y1:
+                return
+            e2 = 2 * err
+            if e2 >= dy:
+                err += dy
+                x0 += sx
+            if e2 <= dx:
+                err += dx
+                y0 += sy
 
-# ------------------------------------------------------------------ canvas
-def new_buf():
-    buf = bytearray(W * H * 3)
-    for i in range(0, len(buf), 3):
-        buf[i] = PAPER[0]
-        buf[i + 1] = PAPER[1]
-        buf[i + 2] = PAPER[2]
-    return buf
+    def fill_circle(self, cx, cy, r, c):
+        for dy in range(-r, r + 1):
+            dx = int(math.sqrt(max(0, r * r - dy * dy)))
+            self.fill_rect(cx - dx, cy + dy, 2 * dx + 1, 1, c)
 
+    def fill_ellipse(self, cx, cy, rx, ry, c):
+        for dy in range(-ry, ry + 1):
+            t = 1.0 - (dy * dy) / float(ry * ry)
+            dx = int(rx * math.sqrt(max(0.0, t)))
+            self.fill_rect(cx - dx, cy + dy, 2 * dx + 1, 1, c)
 
-def set_px(buf, x, y, color):
-    if 0 <= x < W and 0 <= y < H:
-        i = (y * W + x) * 3
-        buf[i] = color[0]
-        buf[i + 1] = color[1]
-        buf[i + 2] = color[2]
+    def fill_poly(self, pts, c):
+        ys = [p[1] for p in pts]
+        for y in range(max(0, min(ys)), min(self.h, max(ys) + 1)):
+            xs = []
+            n = len(pts)
+            for i in range(n):
+                x1, y1 = pts[i]
+                x2, y2 = pts[(i + 1) % n]
+                if (y1 <= y < y2) or (y2 <= y < y1):
+                    t = (y - y1) / float(y2 - y1)
+                    xs.append(x1 + t * (x2 - x1))
+            xs.sort()
+            for i in range(0, len(xs) - 1, 2):
+                self.fill_rect(int(xs[i]), y, max(1, int(xs[i + 1]) - int(xs[i])), 1, c)
 
-
-def fill_rect(buf, x, y, w, h, color):
-    x0 = max(0, x)
-    y0 = max(0, y)
-    x1 = min(W, x + w)
-    y1 = min(H, y + h)
-    for yy in range(y0, y1):
-        base = (yy * W + x0) * 3
-        for xx in range(x0, x1):
-            i = base + (xx - x0) * 3
-            buf[i] = color[0]
-            buf[i + 1] = color[1]
-            buf[i + 2] = color[2]
-
-
-def fill_ellipse(buf, cx, cy, rx, ry, color):
-    for yy in range(cy - ry, cy + ry + 1):
-        dy = (yy - cy) / ry
-        if abs(dy) > 1:
-            continue
-        dx = int(rx * (1 - dy * dy) ** 0.5)
-        fill_rect(buf, cx - dx, yy, 2 * dx + 1, 1, color)
-
-
-def fill_circle(buf, cx, cy, r, color):
-    fill_ellipse(buf, cx, cy, r, r, color)
-
-
-def draw_line(buf, x0, y0, x1, y1, color, thick=1):
-    """Bresenham line with square brush of side `thick`."""
-    dx = abs(x1 - x0)
-    dy = -abs(y1 - y0)
-    sx = 1 if x0 < x1 else -1
-    sy = 1 if y0 < y1 else -1
-    err = dx + dy
-    x, y = x0, y0
-    half = thick // 2
-    while True:
-        fill_rect(buf, x - half, y - half, thick, thick, color)
-        if x == x1 and y == y1:
-            break
-        e2 = 2 * err
-        if e2 >= dy:
-            err += dy
-            x += sx
-        if e2 <= dx:
-            err += dx
-            y += sy
-
-
-def fill_polygon(buf, pts, color):
-    """Scanline fill for a simple polygon given as [(x, y), ...]."""
-    ys = [p[1] for p in pts]
-    for y in range(min(ys), max(ys) + 1):
-        xs = []
-        n = len(pts)
+    def starburst(self, cx, cy, r, c, n=16):
         for i in range(n):
-            x0, y0 = pts[i]
-            x1, y1 = pts[(i + 1) % n]
-            if (y0 <= y < y1) or (y1 <= y < y0):
-                t = (y - y0) / (y1 - y0)
-                xs.append(x0 + t * (x1 - x0))
-        xs.sort()
-        for i in range(0, len(xs) - 1, 2):
-            fill_rect(buf, int(xs[i]), y, int(xs[i + 1]) - int(xs[i]) + 1,
-                      1, color)
+            a = 2.0 * math.pi * i / n
+            self.line(cx, cy, cx + int(math.cos(a) * r), cy + int(math.sin(a) * r), c)
+
+    def text(self, x, y, s, scale, c):
+        check_text(s)
+        for i, ch in enumerate(s):
+            g = FONT[ch]
+            cx = x + i * 6 * scale
+            for r, row in enumerate(g):
+                for col, bit in enumerate(row):
+                    if bit == "#":
+                        self.fill_rect(cx + col * scale, y + r * scale, scale, scale, c)
+
+    def text_w(self, s, scale):
+        return len(s) * 6 * scale - scale
+
+    def text_c(self, cx, y, s, scale, c):
+        self.text(cx - self.text_w(s, scale) // 2, y, s, scale, c)
 
 
-def burst(buf, cx, cy, r, outer, mid, core):
-    """Explosion starburst: spiked outer polygon, mid circle, core."""
-    pts = []
-    spikes = 12
-    for i in range(spikes * 2):
-        ang = 3.141592653589793 * i / spikes
-        rr = r if i % 2 == 0 else int(r * 0.45)
-        pts.append((int(cx + rr * math.cos(ang)),
-                    int(cy + rr * math.sin(ang))))
-    fill_polygon(buf, pts, outer)
-    fill_circle(buf, cx, cy, int(r * 0.62), mid)
-    fill_circle(buf, cx, cy, int(r * 0.34), core)
-
-# ------------------------------------------------------------------- scenes
-# Scenes are drawn at their native 476x320 size and downscaled into the
-# panels by blit_scaled (below), so the scene code is unchanged from v1.
-def scene_gulf(buf, x, y, w, h):
-    """Panel 1: two tankers on a burning sea at dusk, missiles overhead."""
-    fill_rect(buf, x, y, w, h, SKY1)
-    fill_circle(buf, x + w - 70, y + 52, 34, (250, 220, 130))  # low sun
-    fill_rect(buf, x, y + h - 130, w, 130, SEA)                # sea
-    fill_rect(buf, x, y + h - 130, w, 6, SEA_DARK)
-    # waves
-    for wx in range(x + 10, x + w - 10, 46):
-        draw_line(buf, wx, y + h - 96, wx + 26, y + h - 96, WHITE, 3)
-        draw_line(buf, wx + 8, y + h - 58, wx + 34, y + h - 58, WHITE, 3)
-    # tanker 1 (left, listing, on fire)
-    tx, ty = x + 30, y + h - 118
-    fill_rect(buf, tx, ty, 190, 34, HULL)
-    fill_rect(buf, tx, ty + 34, 190, 6, FIRE_RED)
-    fill_rect(buf, tx + 20, ty - 26, 34, 26, HULL)             # bridge
-    fill_rect(buf, tx + 130, ty - 18, 16, 18, (200, 60, 40))  # funnel
-    fill_rect(buf, tx + 60, ty - 14, 60, 14, CREAM)            # deck tanks
-    fill_circle(buf, tx + 30, ty - 14, 12, CREAM)
-    fill_circle(buf, tx + 90, ty - 14, 12, CREAM)
-    burst(buf, tx + 150, ty - 34, 34, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, tx + 120, ty - 52, 16, SMOKE)
-    fill_circle(buf, tx + 142, ty - 66, 20, SMOKE)
-    # tanker 2 (right, hit amidships)
-    tx2, ty2 = x + w - 230, y + h - 112
-    fill_rect(buf, tx2, ty2, 200, 30, HULL)
-    fill_rect(buf, tx2, ty2 + 30, 200, 6, FIRE_RED)
-    fill_rect(buf, tx2 + 150, ty2 - 24, 30, 24, HULL)
-    fill_rect(buf, tx2 + 30, ty2 - 16, 14, 16, (200, 60, 40))
-    burst(buf, tx2 + 90, ty2 - 26, 40, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, tx2 + 60, ty2 - 56, 18, SMOKE)
-    fill_circle(buf, tx2 + 84, ty2 - 74, 22, SMOKE)
-    # missiles streaking down from the sky
-    draw_line(buf, x + 90, y + 18, x + 130, y + 74, WHITE, 4)
-    draw_line(buf, x + 130, y + 74, x + 138, y + 86, ORANGE, 6)
-    draw_line(buf, x + w - 150, y + 10, x + w - 110, y + 62, WHITE, 4)
-    draw_line(buf, x + w - 110, y + 62, x + w - 102, y + 74, ORANGE, 6)
-    # caption
-    draw_text(buf, x + 14, y + h - 24, "GULF OF OMAN", 2, WHITE)
+def panel(cv, x, y, w, h, title, head=INK):
+    cv.fill_rect(x, y, w, h, PAPER2)
+    cv.border(x, y, w, h, INK)
+    cv.fill_rect(x + 1, y + 1, w - 2, 18, head)
+    cv.text(x + 7, y + 6, title, 1, WHITE)
+    return (x + 1, y + 20, w - 2, h - 21)
 
 
-def scene_kerch(buf, x, y, w, h):
-    """Panel 2: Kerch Bridge at night, second night of strikes."""
-    fill_rect(buf, x, y, w, h, NIGHT)
-    fill_circle(buf, x + w - 64, y + 46, 26, CREAM)            # moon
-    fill_circle(buf, x + w - 72, y + 40, 24, NIGHT)            # crescent cut
-    for sx, sy in [(40, 30), (120, 60), (210, 26), (300, 70), (380, 34),
-                   (70, 96), (250, 110), (420, 90), (160, 130), (340, 140)]:
-        fill_circle(buf, x + sx, y + sy, 3, WHITE)             # stars
-    fill_rect(buf, x, y + h - 96, w, 96, NIGHT_SEA)            # strait
-    for wx in range(x + 14, x + w - 14, 52):
-        draw_line(buf, wx, y + h - 60, wx + 28, y + h - 60,
-                  (90, 120, 170), 3)
-    # bridge: two towers, deck, suspension cables
-    deck_y = y + h - 150
-    fill_rect(buf, x + 20, deck_y, w - 40, 12, (200, 200, 205))
-    for tx in (x + 110, x + w - 140):
-        fill_rect(buf, tx, deck_y - 92, 14, 92, (200, 200, 205))
-        fill_rect(buf, tx - 4, deck_y - 104, 22, 12, (200, 200, 205))
-    draw_line(buf, x + 117, deck_y - 92, x + w // 2, deck_y - 8,
-              (160, 160, 165), 3)
-    draw_line(buf, x + w - 127, deck_y - 92, x + w // 2, deck_y - 8,
-              (160, 160, 165), 3)
-    draw_line(buf, x + 117, deck_y - 92, x + 30, deck_y - 8,
-              (160, 160, 165), 3)
-    draw_line(buf, x + w - 127, deck_y - 92, x + w - 30, deck_y - 8,
-              (160, 160, 165), 3)
-    # strike: gap in the deck + fireball + smoke
-    fill_rect(buf, x + w // 2 - 34, deck_y, 68, 12, NIGHT)
-    burst(buf, x + w // 2, deck_y - 26, 44, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, x + w // 2 - 40, deck_y - 70, 18, SMOKE)
-    fill_circle(buf, x + w // 2 - 14, deck_y - 88, 24, SMOKE)
-    fill_circle(buf, x + w // 2 + 22, deck_y - 76, 16, SMOKE)
-    # falling sparks
-    for sx, sy in [(30, 26), (52, 44), (76, 30), (96, 58)]:
-        fill_circle(buf, x + w // 2 - 60 + sx, deck_y + sy, 3, YELLOW)
-    draw_text(buf, x + 14, y + h - 24, "KERCH STRAIT", 2, WHITE)
+def scene_gulf(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PALESKY)
+    cv.fill_circle(x + w - 30, y + 22, 14, GOLD)
+    cv.fill_rect(x, y + int(h * 0.55), w, h - int(h * 0.55), SEA)
+    cv.fill_rect(x, y + int(h * 0.55), w, 2, WHITE)
+    cv.fill_rect(x + 12, y + int(h * 0.62), w - 24, 12, BLACK)
+    cv.fill_rect(x + w // 2 - 14, y + int(h * 0.62) - 12, 28, 12, WHITE)
+    cv.fill_rect(x + w // 2 + 16, y + int(h * 0.62) - 18, 6, 18, RED)
+    cv.starburst(x + int(w * 0.72), y + int(h * 0.38), 26, ORANGE)
+    cv.starburst(x + int(w * 0.72), y + int(h * 0.38), 14, YELLOW)
+    cv.fill_circle(x + int(w * 0.72), y + int(h * 0.38), 7, YELLOW)
+    cv.fill_circle(x + int(w * 0.30), y + int(h * 0.30), 9, SMOKE)
+    cv.fill_circle(x + int(w * 0.36), y + int(h * 0.24), 12, SMOKE)
+    cv.fill_circle(x + int(w * 0.42), y + int(h * 0.30), 8, SMOKE)
 
 
-def scene_shenzhen(buf, x, y, w, h):
-    """Panel 3: Shenzhen skyline at the APEC opening, three flags."""
-    fill_rect(buf, x, y, w, h, SKY3)
-    fill_circle(buf, x + 74, y + 48, 30, YELLOW)               # sun
-    for cx, cy in [(300, 40), (340, 52), (410, 36)]:
-        fill_circle(buf, x + cx, y + cy, 16, WHITE)            # cloud
-    # skyline (back row, lighter)
-    for bx, bw, bh in [(20, 56, 120), (96, 44, 170), (330, 52, 140),
-                       (400, 60, 110)]:
-        fill_rect(buf, x + bx, y + h - 96 - bh, bw, bh, (120, 150, 185))
-    # skyline (front row, darker) incl. tallest tower with spire
-    for bx, bw, bh in [(150, 64, 210), (230, 52, 160), (290, 58, 190)]:
-        fill_rect(buf, x + bx, y + h - 96 - bh, bw, bh, (70, 100, 140))
-    fill_rect(buf, x + 170, y + h - 96 - 210 - 44, 8, 44, (70, 100, 140))
-    fill_circle(buf, x + 174, y + h - 96 - 210 - 48, 5, FIRE_RED)
-    # lit windows
-    for wx in range(x + 158, x + 206, 14):
-        for wy in range(y + h - 280, y + h - 110, 20):
-            fill_rect(buf, wx, wy, 6, 8, YELLOW)
-    # ground + APEC banner
-    fill_rect(buf, x, y + h - 96, w, 96, (90, 140, 90))
-    fill_rect(buf, x + 60, y + h - 88, w - 120, 34, TEAL)
-    draw_text_centered(buf, x + w // 2, y + h - 80, "APEC 2026", 2, WHITE)
-    # three flags on poles: USA, China, Russia
-    flags = [
-        ("USA", [(255, 255, 255), (178, 34, 52), (255, 255, 255),
-                 (178, 34, 52), (255, 255, 255), (178, 34, 52)]),
-        ("CHN", [(200, 30, 30)] * 6),
-        ("RUS", [(255, 255, 255), (255, 255, 255),
-                 (0, 57, 166), (0, 57, 166),
-                 (213, 0, 50), (213, 0, 50)]),
-    ]
-    fx = x + 40
-    for _name, stripes in flags:
-        fill_rect(buf, fx, y + h - 96 - 78, 4, 78, INK)        # pole
-        for i, col in enumerate(stripes):
-            fill_rect(buf, fx + 4, y + h - 96 - 78 + i * 7, 52, 7, col)
-        if _name == "USA":
-            fill_rect(buf, fx + 4, y + h - 96 - 78, 22, 21, NAVY)
-            fill_circle(buf, fx + 15, y + h - 96 - 68, 3, WHITE)
-        if _name == "CHN":
-            fill_circle(buf, fx + 14, y + h - 96 - 68, 4, YELLOW)
-        fx += 150
-    draw_text(buf, x + 14, y + h - 24, "SHENZHEN", 2, INK)
+def scene_kerch(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, NIGHT)
+    for sx, sy in ((12, 10), (30, 26), (55, 8), (80, 20), (110, 12), (140, 28),
+                   (170, 8), (200, 18), (40, 44), (150, 40), (95, 34), (210, 34)):
+        cv.set(x + sx, y + sy, WHITE)
+    cv.fill_circle(x + w - 32, y + 26, 13, MOON)
+    cv.fill_circle(x + w - 36, y + 22, 11, NIGHT)
+    cv.fill_rect(x, y + int(h * 0.68), w, h - int(h * 0.68), DEEPSEA)
+    cv.line(x, y + int(h * 0.62), x + w, y + int(h * 0.62), WHITE)
+    for tx in (int(w * 0.25), int(w * 0.70)):
+        cv.line(x + tx, y + int(h * 0.62), x + tx, y + int(h * 0.34), WHITE)
+        cv.line(x + tx, y + int(h * 0.34), x + w // 2, y + int(h * 0.62), WHITE)
+    cv.fill_circle(x + w // 2, y + int(h * 0.56), 10, ORANGE)
+    cv.fill_circle(x + w // 2, y + int(h * 0.56), 5, YELLOW)
+    cv.starburst(x + w // 2, y + int(h * 0.56), 18, ORANGE, 10)
+    cv.fill_circle(x + w // 2 + 26, y + int(h * 0.50), 6, SMOKE)
+    cv.fill_circle(x + w // 2 + 34, y + int(h * 0.44), 8, SMOKE)
 
 
-def scene_cop31(buf, x, y, w, h):
-    """Panel 4: COP31 in Antalya -- globe, hills, trees, 144 items."""
-    fill_rect(buf, x, y, w, h, SKY4)
-    fill_circle(buf, x + w - 70, y + 50, 30, YELLOW)           # sun
-    for cx, cy in [(60, 40), (100, 52), (330, 30)]:
-        fill_circle(buf, x + cx, y + cy, 14, WHITE)            # clouds
-    # globe, centre-left
-    gx, gy, gr = x + 150, y + 150, 92
-    fill_circle(buf, gx, gy, gr, (46, 110, 190))
-    fill_ellipse(buf, gx - 34, gy - 30, 34, 22, (60, 160, 90))  # land
-    fill_ellipse(buf, gx + 30, gy + 26, 38, 24, (60, 160, 90))
-    fill_ellipse(buf, gx + 8, gy - 52, 22, 14, (80, 180, 100))
-    fill_ellipse(buf, gx - 52, gy + 44, 18, 12, (80, 180, 100))
-    draw_line(buf, gx - gr, gy, gx + gr, gy, WHITE, 2)         # equator hint
-    # hills -- kept fully inside the scene: centre 30 px above the
-    # scene floor, ry 30, so the bottom edge lands exactly on the
-    # panel's bottom border and never spills onto the footer.
-    fill_ellipse(buf, x + 60, y + h - 32, 190, 28, (52, 140, 80))
-    fill_ellipse(buf, x + w - 80, y + h - 32, 220, 28, (38, 120, 66))
-    # trees
-    for tx in (x + 330, x + 400, x + 60):
-        fill_rect(buf, tx, y + h - 96, 10, 40, (120, 80, 40))
-        fill_circle(buf, tx + 5, y + h - 108, 26, (24, 130, 60))
-        fill_circle(buf, tx - 16, y + h - 92, 18, (30, 150, 70))
-        fill_circle(buf, tx + 26, y + h - 92, 18, (30, 150, 70))
-    # badge: 144 disputed items
-    bx, by = x + w - 96, y + 118
-    fill_circle(buf, bx, by, 52, CREAM)
-    fill_circle(buf, bx, by, 52, INK)  # ring via overdraw trick below
-    fill_circle(buf, bx, by, 48, CREAM)
-    draw_text_centered(buf, bx, by - 18, "144", 4, GREEN)
-    draw_text_centered(buf, bx, by + 16, "ITEMS", 2, INK)
-    draw_text(buf, x + 14, y + h - 24, "ANTALYA", 2, WHITE)
-
-# ------------------------------------------------------- wide scenes
-# Wide (476x192) variants of the four anchor scenes, drawn natively for
-# the v3 panels: blit_scaled_wide maps them 1:1 onto 313x126 with no
-# vertical squash. The v1 476x320 scenes are kept below, unused in v3.
-def scene_gulf_wide(buf, x, y, w, h):
-    """Panel 1 wide: two tankers on a burning sea at dusk."""
-    fill_rect(buf, x, y, w, h, SKY1)
-    fill_circle(buf, x + w - 60, y + 36, 26, (250, 220, 130))
-    fill_rect(buf, x, y + 110, w, 82, SEA)
-    fill_rect(buf, x, y + 110, w, 5, SEA_DARK)
-    for wx in range(x + 10, x + w - 10, 46):
-        draw_line(buf, wx, y + 140, wx + 26, y + 140, WHITE, 3)
-        draw_line(buf, wx + 8, y + 168, wx + 34, y + 168, WHITE, 3)
-    tx, ty = x + 24, y + 118
-    fill_rect(buf, tx, ty, 170, 26, HULL)
-    fill_rect(buf, tx, ty + 26, 170, 5, FIRE_RED)
-    fill_rect(buf, tx + 16, ty - 20, 28, 20, HULL)
-    fill_rect(buf, tx + 110, ty - 14, 14, 14, (200, 60, 40))
-    fill_rect(buf, tx + 50, ty - 10, 52, 10, CREAM)
-    burst(buf, tx + 130, ty - 26, 26, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, tx + 100, ty - 40, 12, SMOKE)
-    fill_circle(buf, tx + 120, ty - 52, 15, SMOKE)
-    tx2, ty2 = x + w - 210, y + 124
-    fill_rect(buf, tx2, ty2, 180, 24, HULL)
-    fill_rect(buf, tx2, ty2 + 24, 180, 5, FIRE_RED)
-    fill_rect(buf, tx2 + 130, ty2 - 18, 24, 18, HULL)
-    burst(buf, tx2 + 70, ty2 - 20, 30, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, tx2 + 44, ty2 - 42, 13, SMOKE)
-    fill_circle(buf, tx2 + 64, ty2 - 54, 16, SMOKE)
-    draw_line(buf, x + 80, y + 12, x + 110, y + 52, WHITE, 4)
-    draw_line(buf, x + 110, y + 52, x + 116, y + 62, ORANGE, 6)
-    draw_line(buf, x + w - 130, y + 8, x + w - 96, y + 46, WHITE, 4)
-    draw_line(buf, x + w - 96, y + 46, x + w - 90, y + 56, ORANGE, 6)
-    draw_text(buf, x + 14, y + h - 24, "GULF OF OMAN", 2, WHITE)
-
-
-def scene_kerch_wide(buf, x, y, w, h):
-    """Panel 2 wide: Kerch Bridge at night, second night of strikes."""
-    fill_rect(buf, x, y, w, h, NIGHT)
-    fill_circle(buf, x + w - 56, y + 34, 20, CREAM)
-    fill_circle(buf, x + w - 62, y + 30, 18, NIGHT)
-    for sx, sy in [(40, 24), (120, 44), (210, 20), (300, 50), (380, 26),
-                   (70, 70), (250, 80), (420, 64), (160, 92), (340, 96)]:
-        fill_circle(buf, x + sx, y + sy, 3, WHITE)
-    fill_rect(buf, x, y + 132, w, 60, NIGHT_SEA)
-    for wx in range(x + 14, x + w - 14, 52):
-        draw_line(buf, wx, y + 160, wx + 28, y + 160, (90, 120, 170), 3)
-    deck_y = y + 104
-    fill_rect(buf, x + 20, deck_y, w - 40, 10, (200, 200, 205))
-    for tx in (x + 100, x + w - 130):
-        fill_rect(buf, tx, deck_y - 62, 12, 62, (200, 200, 205))
-        fill_rect(buf, tx - 4, deck_y - 72, 20, 10, (200, 200, 205))
-    draw_line(buf, x + 106, deck_y - 62, x + w // 2, deck_y - 6,
-              (160, 160, 165), 3)
-    draw_line(buf, x + w - 124, deck_y - 62, x + w // 2, deck_y - 6,
-              (160, 160, 165), 3)
-    draw_line(buf, x + 106, deck_y - 62, x + 30, deck_y - 6,
-              (160, 160, 165), 3)
-    draw_line(buf, x + w - 124, deck_y - 62, x + w - 30, deck_y - 6,
-              (160, 160, 165), 3)
-    fill_rect(buf, x + w // 2 - 28, deck_y, 56, 10, NIGHT)
-    burst(buf, x + w // 2, deck_y - 20, 34, FIRE_RED, ORANGE, YELLOW)
-    fill_circle(buf, x + w // 2 - 34, deck_y - 52, 14, SMOKE)
-    fill_circle(buf, x + w // 2 - 10, deck_y - 66, 18, SMOKE)
-    fill_circle(buf, x + w // 2 + 18, deck_y - 56, 12, SMOKE)
-    for sx, sy in [(24, 20), (44, 34), (64, 24), (82, 44)]:
-        fill_circle(buf, x + w // 2 - 52 + sx, deck_y + sy, 3, YELLOW)
-    draw_text(buf, x + 14, y + h - 24, "KERCH STRAIT", 2, WHITE)
-
-
-def scene_shenzhen_wide(buf, x, y, w, h):
-    """Panel 3 wide: Shenzhen skyline at the APEC opening."""
-    fill_rect(buf, x, y, w, h, SKY3)
-    fill_circle(buf, x + 64, y + 34, 22, YELLOW)
-    for cx, cy in [(260, 30), (300, 40), (360, 26)]:
-        fill_circle(buf, x + cx, y + cy, 12, WHITE)
-    for bx, bw, bh in [(20, 48, 70), (90, 38, 100), (290, 44, 80),
-                       (350, 52, 64)]:
-        fill_rect(buf, x + bx, y + 150 - bh, bw, bh, (120, 150, 185))
-    for bx, bw, bh in [(140, 54, 120), (205, 44, 95), (255, 48, 110)]:
-        fill_rect(buf, x + bx, y + 150 - bh, bw, bh, (70, 100, 140))
-    fill_rect(buf, x + 158, y + 150 - 120 - 30, 7, 30, (70, 100, 140))
-    fill_circle(buf, x + 161, y + 150 - 120 - 33, 4, FIRE_RED)
-    for wx in range(x + 146, x + 188, 12):
-        for wy in range(y + 40, y + 140, 16):
-            fill_rect(buf, wx, wy, 5, 6, YELLOW)
-    fill_rect(buf, x, y + 150, w, 42, (90, 140, 90))
-    fill_rect(buf, x + 120, y + 156, w - 140, 26, TEAL)
-    draw_text_centered(buf, x + 120 + (w - 140) // 2, y + 162,
-                       "APEC 2026", 2, WHITE)
-    flags = [
-        ("USA", [(255, 255, 255), (178, 34, 52), (255, 255, 255),
-                 (178, 34, 52), (255, 255, 255), (178, 34, 52)]),
-        ("CHN", [(200, 30, 30)] * 6),
-        ("RUS", [(255, 255, 255), (255, 255, 255),
-                 (0, 57, 166), (0, 57, 166),
-                 (213, 0, 50), (213, 0, 50)]),
-    ]
-    fx = x + 36
-    for _name, stripes in flags:
-        fill_rect(buf, fx, y + 150 - 58, 4, 58, INK)
-        for i, col in enumerate(stripes):
-            fill_rect(buf, fx + 4, y + 150 - 58 + i * 6, 44, 6, col)
-        if _name == "USA":
-            fill_rect(buf, fx + 4, y + 150 - 58, 18, 18, NAVY)
-            fill_circle(buf, fx + 13, y + 150 - 49, 3, WHITE)
-        if _name == "CHN":
-            fill_circle(buf, fx + 12, y + 150 - 49, 3, YELLOW)
-        fx += 130
-    draw_text(buf, x + 14, y + h - 24, "SHENZHEN", 2, INK)
-
-
-def scene_cop31_wide(buf, x, y, w, h):
-    """Panel 4 wide: COP31 in Antalya -- globe, hills, 144 items."""
-    fill_rect(buf, x, y, w, h, SKY4)
-    fill_circle(buf, x + w - 60, y + 36, 22, YELLOW)
-    for cx, cy in [(50, 30), (84, 40), (300, 24)]:
-        fill_circle(buf, x + cx, y + cy, 11, WHITE)
-    gx, gy, gr = x + 130, y + 92, 58
-    fill_circle(buf, gx, gy, gr, (46, 110, 190))
-    fill_ellipse(buf, gx - 22, gy - 18, 22, 14, (60, 160, 90))
-    fill_ellipse(buf, gx + 20, gy + 16, 24, 15, (60, 160, 90))
-    fill_ellipse(buf, gx + 5, gy - 34, 14, 9, (80, 180, 100))
-    fill_ellipse(buf, gx - 34, gy + 28, 12, 8, (80, 180, 100))
-    draw_line(buf, gx - gr, gy, gx + gr, gy, WHITE, 2)
-    fill_ellipse(buf, x + 50, y + 176, 150, 18, (52, 140, 80))
-    fill_ellipse(buf, x + w - 70, y + 176, 170, 18, (38, 120, 66))
-    for tx in (x + 300, x + 360, x + 50):
-        fill_rect(buf, tx, y + 138, 8, 28, (120, 80, 40))
-        fill_circle(buf, tx + 4, y + 128, 18, (24, 130, 60))
-        fill_circle(buf, tx - 12, y + 140, 12, (30, 150, 70))
-        fill_circle(buf, tx + 20, y + 140, 12, (30, 150, 70))
-    bx, by = x + w - 76, y + 78
-    fill_circle(buf, bx, by, 40, CREAM)
-    fill_circle(buf, bx, by, 40, INK)
-    fill_circle(buf, bx, by, 37, CREAM)
-    draw_text_centered(buf, bx, by - 14, "144", 4, GREEN)
-    draw_text_centered(buf, bx, by + 12, "ITEMS", 2, INK)
-    draw_text(buf, x + 14, y + h - 24, "ANTALYA", 2, WHITE)
-
-
-# ------------------------------------------------------------- downscaling
-def blit_scaled(buf, scene_fn, x, y, w, h):
-    """Render a scene at its native 476x320 size into a temp buffer, then
-    nearest-neighbour downscale it into (x, y, w, h). The canvas helpers
-    index with the global stride W, so the temp buffer is a full-size
-    1024x1024 buffer and only its top-left 476x320 corner is used."""
-    tmp = new_buf()
-    scene_fn(tmp, 0, 0, 476, 320)
-    for ty in range(h):
-        sy = ty * 320 // h
-        src_row = sy * W * 3
-        dst_row = ((y + ty) * W + x) * 3
-        for tx in range(w):
-            sx = tx * 476 // w
-            si = src_row + sx * 3
-            di = dst_row + tx * 3
-            buf[di] = tmp[si]
-            buf[di + 1] = tmp[si + 1]
-            buf[di + 2] = tmp[si + 2]
-
-
-
-def blit_scaled_wide(buf, scene_fn, x, y, w, h):
-    """Render a wide scene at its native 476x192 size into a temp
-    buffer, then nearest-neighbour downscale it into (x, y, w, h).
-    Target 313x126 maps 1:1 (0.658 x 0.656), so no squash."""
-    tmp = new_buf()
-    scene_fn(tmp, 0, 0, 476, 192)
-    for ty in range(h):
-        sy = ty * 192 // h
-        src_row = sy * W * 3
-        dst_row = ((y + ty) * W + x) * 3
-        for tx in range(w):
-            sx = tx * 476 // w
-            si = src_row + sx * 3
-            di = dst_row + tx * 3
-            buf[di] = tmp[si]
-            buf[di + 1] = tmp[si + 1]
-            buf[di + 2] = tmp[si + 2]
-
-
-# -------------------------------------------------------------------- map
-# Rough continent outlines in (lon, lat); equirectangular projection
-# onto the map panel. Deliberately stylised, not a survey map.
-CONTINENTS = [
-    # North America
-    [(-168, 66), (-150, 70), (-140, 70), (-125, 48), (-120, 34),
-     (-105, 22), (-95, 16), (-83, 25), (-80, 32), (-75, 40), (-70, 44),
-     (-65, 45), (-60, 47), (-55, 52), (-65, 60), (-95, 68), (-120, 70),
-     (-150, 70), (-165, 66)],
-    # Greenland
-    [(-58, 64), (-45, 60), (-30, 68), (-22, 70), (-30, 76), (-55, 76),
-     (-62, 70)],
-    # South America
-    [(-80, 10), (-75, 0), (-70, -10), (-60, -20), (-50, -30), (-40, -20),
-     (-35, -8), (-40, 0), (-50, 5), (-60, 8), (-70, 12), (-78, 8)],
-    # Africa
-    [(-10, 35), (0, 36), (10, 37), (20, 32), (30, 31), (35, 28), (43, 12),
-     (48, 11), (40, 0), (35, -10), (30, -20), (20, -30), (15, -35),
-     (12, -18), (8, 4), (0, 6), (-8, 5), (-15, 12), (-17, 15)],
-    # Europe
-    [(-10, 36), (-2, 37), (0, 44), (5, 50), (10, 55), (18, 56), (21, 60),
-     (25, 65), (30, 60), (28, 55), (23, 40), (18, 40), (12, 38), (3, 38),
-     (-5, 36)],
-    # Asia
-    [(30, 36), (40, 42), (50, 45), (60, 50), (70, 55), (80, 60), (90, 65),
-     (100, 70), (110, 72), (130, 70), (140, 60), (142, 50), (140, 40),
-     (130, 35), (120, 25), (110, 20), (105, 10), (100, 8), (95, 15),
-     (90, 22), (80, 25), (75, 20), (70, 25), (60, 25), (50, 28), (43, 30),
-     (40, 36)],
-    # Australia
-    [(113, -22), (122, -14), (132, -12), (142, -11), (150, -22),
-     (153, -27), (146, -39), (140, -38), (132, -32), (124, -33),
-     (115, -35), (113, -26)],
-]
-
-# (label, lon, lat, label side: R = right, L = left, A = above, B = below)
-MAP_MARKS = [
-    ("ALASKA", -150, 64, "B"),
-    ("GULF", 57, 26, "R"),
-    ("KERCH", 36, 45, "A"),
-    ("SHENZHEN", 114, 22, "R"),
-    ("ANTALYA", 30, 37, "L"),
-    ("CONGO", 25, -2, "B"),
-    ("FIJI", 178, -18, "L"),
-    ("COOK IS", -160, -21, "R"),
-]
-
-
-def draw_map(buf, x, y, w, h):
-    """Stylised world map: ocean, continents, red story markers."""
-    fill_rect(buf, x, y, w, h, MAP_BLUE)
-
-    def mx(lon):
-        return x + int((lon + 170) * w / 360)
-
-    def my(lat):
-        return y + int((75 - lat) * h / 130)
-
-    for cont in CONTINENTS:
-        fill_polygon(buf, [(mx(lon), my(lat)) for lon, lat in cont],
-                     MAP_LAND)
-    for label, lon, lat, side in MAP_MARKS:
-        cx, cy = mx(lon), my(lat)
-        fill_circle(buf, cx, cy, 4, MAP_DOT)
-        fill_circle(buf, cx, cy, 2, WHITE)
-        lw = text_width(label, 1)
-        if side == "R":
-            lx, ly = cx + 7, cy - 3
-        elif side == "L":
-            lx, ly = cx - 7 - lw, cy - 3
-        elif side == "A":
-            lx, ly = cx - lw // 2, cy - 13
+def scene_shenzhen(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PALESKY)
+    cv.fill_circle(x + 26, y + 20, 12, GOLD)
+    base = y + h
+    towers = ((0, 0.55), (0.14, 0.78), (0.28, 0.62), (0.42, 0.92),
+              (0.56, 0.70), (0.70, 0.85), (0.84, 0.60))
+    for fx, fh in towers:
+        tw = int(w * 0.13)
+        th = int(h * fh)
+        cv.fill_rect(x + int(w * fx), base - th, tw, th, DARKBLUE)
+        for wy in range(base - th + 8, base - 6, 12):
+            for wx in range(x + int(w * fx) + 4, x + int(w * fx) + tw - 4, 8):
+                cv.set(wx, wy, GOLD)
+    cv.fill_rect(x, base - int(h * 0.92) - 6, 3, int(h * 0.92) + 6, INK)
+    cv.fill_rect(x, y + int(h * 0.06), w, 2, INK)
+    flags = ((0.30, RED, None), (0.50, None, "US"), (0.72, None, "RU"))
+    for fx, solid, kind in flags:
+        px = x + int(w * fx)
+        cv.line(px, y + int(h * 0.10), px, y + int(h * 0.38), INK)
+        if kind is None:
+            cv.fill_rect(px + 1, y + int(h * 0.10), 20, 12, solid)
+        elif kind == "US":
+            for i in range(4):
+                cv.fill_rect(px + 1, y + int(h * 0.10) + i * 3, 20, 2,
+                             RED if i % 2 == 0 else WHITE)
+            cv.fill_rect(px + 1, y + int(h * 0.10), 9, 6, BLUE)
         else:
-            lx, ly = cx - lw // 2, cy + 8
-        draw_text(buf, lx, ly, label, 1, INK)
+            cv.fill_rect(px + 1, y + int(h * 0.10), 20, 4, WHITE)
+            cv.fill_rect(px + 1, y + int(h * 0.10) + 4, 20, 4, BLUE)
+            cv.fill_rect(px + 1, y + int(h * 0.10) + 8, 20, 4, RED)
 
 
-# ------------------------------------------------------------------ briefs
-# (headline, caption) -- 32 briefs, all verified 18 Nov 2026.
-BRIEFS = [
-    # 39 briefs, one line each (headline + caption, <=52 chars each).
-    # Col 1 (13) -- Americas + Europe carry-over from v2.
-    ("EU PLANS RWANDA RETURN HUBS",
-     "FIVE STATES PLAN MIGRANT RETURN CENTRES IN RWANDA."),
-    ("27 YEARS FOR IRAN PLOT",
-     "PAKISTANI MAN SENTENCED OVER PLOT AGAINST TRUMP."),
-    ("QUAD MEETS IN MANILA",
-     "TRUMP JOINS MODI, ALBANESE AND TAKAICHI IN MANILA."),
-    ("RUSSIAN PLANE CRASHES, 19 DEAD",
-     "MILITARY AN-12 DOWN IN KEMEROVO, SIBERIA."),
-    ("US SOLDIER IN UK MOVED TO US",
-     "HELD OVER RUSSIA SPY SUSPICION, NOW IN US CUSTODY."),
-    ("140,000 JOIN FRENCH PAY PROTESTS",
-     "FOURTH WEEKEND OF MARCHES OVER LIVING COSTS."),
-    ("HOUTHIS PRESS TOWARD ADEN",
-     "YEMEN REBELS ADVANCE ON THE SOUTHERN PORT CITY."),
-    ("US SCOLDS KYIV ON DEEP STRIKES",
-     "GERMANY PUSHES BACK AS PEACE TALKS ARE PLANNED."),
-    ("TURKEY TAKES OVER SOZCU TV",
-     "OPPOSITION CHANNEL SEIZED BY THE STATE."),
-    ("SERBIA PARLIAMENT OPENS",
-     "STUDENT LIST TAKES A MAJORITY OF SEATS."),
-    ("ERITREA BORDER CLASHES",
-     "FIGHTING RAISES FEARS OF A WIDER WAR IN TIGRAY."),
-    ("KOREA LIFTS 2027 GROWTH TO 3.9 PCT",
-     "SEOUL RAISES ITS FORECAST FOR NEXT YEAR."),
-    ("FRANCE-MALAYSIA RARE EARTHS DEAL",
-     "STRATEGIC PARTNERSHIP SIGNED IN KUALA LUMPUR."),
-    # Col 2 (13) -- markets, tech, health, sport + new stories.
-    ("BRAZIL REAL FALLS",
-     "LULA FISCAL PLAN DISAPPOINTS INVESTORS."),
-    ("EUROPE PAYS UP FOR LNG",
-     "GAS STOCKS LOW AS WINTER NEARS."),
-    ("PAKISTAN SOLAR SHARE HITS 28 PCT",
-     "ROOFTOP PANELS LIFT SOLAR TO RECORD SHARE."),
-    ("US TIGHTENS CHIP RULES ON CHINA",
-     "NEW CURBS ON ADVANCED CHIP ACCESS."),
-    ("ANTHROPIC TO LIST ON NASDAQ",
-     "AI FIRM SET TO LIST ON THURSDAY 19 NOVEMBER."),
-    ("FIJI DECLARES DISASTER",
-     "EL NINO DROUGHT DECLARED A NATIONAL DISASTER."),
-    ("WHO WARNS ON SUPERBUGS",
-     "ANTIMICROBIAL RESISTANCE THREAT GROWS, WHO SAYS."),
-    ("MEASLES NO LONGER ELIMINATED IN US",
-     "PAHO ENDS US STATUS AFTER 5,400 CASES IN 2026."),
-    ("DHONI RETIRES FROM IPL",
-     "INDIA GREAT MS DHONI ENDS HIS IPL CAREER."),
-    ("CYCLONE AKVAN NEARS INDIA",
-     "STORM HEADS FOR ANDHRA PRADESH, LANDFALL FRIDAY."),
-    ("KAHANA ELECTED KNESSET SPEAKER",
-     "ISRAEL PARLIAMENT PICKS MATAN KAHANA."),
-    ("CARNEY MEETS TRUMP AT APEC",
-     "CANADA PM IN SHENZHEN FOR SUMMIT TALKS."),
-    ("PATTINSON IS THE NEW JAMES BOND",
-     "ROBERT PATTINSON TAKES OVER THE 007 ROLE."),
-    # Col 3 (13) -- Middle East, Africa, Asia, Oceania (all new).
-    ("PAKISTAN CUTS PETROL PRICE",
-     "PETROL DOWN RS3 TO RS325 A LITRE."),
-    ("UN WARNS OF COLD DEATHS IN GAZA",
-     "1.7 MILLION DISPLACED AS WINTER SETS IN."),
-    ("BAHRAIN INTERCEPTS IRAN ATTACKS",
-     "KUWAIT COUNTERS HOSTILE DRONES."),
-    ("SAUDI INTERCEPTS HOUTHI MISSILE",
-     "CRUISE MISSILE DOWNED NEAR RIYADH."),
-    ("ADNOC SHIP HIT IN HORMUZ",
-     "ONE CREW MISSING, 11 INJURED."),
-    ("AUSTRALIA SANCTIONS SETTLERS",
-     "THREE PEOPLE, FOUR GROUPS SANCTIONED."),
-    ("IRAQ TELLS MILITIA TO LEAVE",
-     "KATAIB HEZBOLLAH REJECTS ULTIMATUM."),
-    ("SUDAN ARMY GAINS IN KORDOFAN",
-     "RSF UNDER PRESSURE AS AID CRISIS GROWS."),
-    ("NIGERIA STATES GET OWN POLICE",
-     "LANDMARK LAW PASSES ON POLICING."),
-    ("WAYMO HALTS FREEWAY ROBOTAXIS",
-     "DRIVERLESS FREEWAY TRIPS SUSPENDED."),
-    ("NZ TSUNAMI WARNING LIFTED",
-     "ALERT WITHDRAWN AFTER NORTH ISLAND SCARE."),
-    ("EU ACTS AGAINST TEMU",
-     "BRUSSELS TARGETS ILLEGAL PRODUCTS."),
-    ("NATO PLANS NEW COMMS STRATEGY",
-     "ALLIANCE TO UPGRADE ITS NETWORKS."),
+def scene_cop31(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, (188, 214, 234))
+    cv.fill_circle(x + 24, y + 20, 12, GOLD)
+    cv.fill_poly(((x, y + h), (x, y + int(h * 0.62)),
+                  (x + int(w * 0.45), y + int(h * 0.48)),
+                  (x + int(w * 0.75), y + int(h * 0.66)), (x + w, y + h)), GREEN)
+    cv.fill_poly(((x, y + h), (x + int(w * 0.35), y + int(h * 0.70)),
+                  (x + int(w * 0.70), y + int(h * 0.58)), (x + w, y + h)), (34, 96, 52))
+    gx, gy, gr = x + int(w * 0.68), y + int(h * 0.30), 26
+    cv.fill_circle(gx, gy, gr, SEA)
+    cv.fill_circle(gx - 8, gy - 6, 7, GREEN)
+    cv.fill_circle(gx + 9, gy + 7, 6, GREEN)
+    cv.fill_circle(gx + 4, gy - 12, 5, GREEN)
+    cv.fill_circle(x + w - 26, y + 26, 19, RED)
+    cv.text_c(x + w - 26, y + 18, "144", 2, WHITE)
+    cv.text_c(x + w - 26, y + 34, "ITEMS", 1, WHITE)
+
+
+CONTINENTS = [
+    [(-170, 70), (-140, 70), (-120, 70), (-95, 70), (-80, 70), (-75, 60),
+     (-80, 45), (-75, 35), (-80, 25), (-90, 20), (-95, 15), (-105, 20),
+     (-115, 30), (-125, 40), (-125, 50), (-140, 60), (-165, 60)],
+    [(-80, 10), (-75, 0), (-70, -10), (-60, -20), (-55, -30), (-65, -45),
+     (-70, -55), (-75, -40), (-75, -20), (-80, -5)],
+    [(-10, 36), (0, 40), (10, 44), (20, 45), (30, 46), (30, 55), (20, 60),
+     (10, 60), (5, 58), (0, 50), (-5, 45), (-10, 40)],
+    [(-15, 35), (-5, 35), (10, 37), (20, 32), (30, 30), (35, 25), (40, 15),
+     (50, 10), (45, 0), (40, -10), (35, -20), (30, -30), (20, -35),
+     (15, -25), (10, -15), (5, -5), (0, 5), (-10, 15)],
+    [(40, 70), (60, 70), (80, 70), (100, 75), (120, 75), (140, 70),
+     (160, 65), (170, 60), (160, 50), (150, 45), (140, 40), (130, 35),
+     (120, 30), (110, 20), (100, 10), (95, 5), (90, 15), (80, 20),
+     (70, 25), (60, 25), (50, 30), (40, 40)],
+    [(115, -20), (125, -15), (135, -12), (145, -15), (150, -25),
+     (145, -35), (135, -38), (125, -35), (115, -30)],
+]
+
+MARKERS = [
+    (-150, 65, "ALASKA"), (55, 26, "GULF"), (36, 45, "KERCH"),
+    (114, 22, "SHENZHEN"), (30, 37, "ANTALYA"), (15, -2, "CONGO"),
+    (178, -17, "FIJI"), (-160, -21, "COOK IS."),
 ]
 
 
-def draw_briefs_strict(buf, x, y, w, briefs):
-    """One column of briefs, strict single lines: headline + caption,
-    19 px per brief (8 + 8 + 3 gap). Asserts every line fits."""
-    cy = y
-    for head, cap in briefs:
-        assert text_width(head, 1) <= w, head
-        assert text_width(cap, 1) <= w, cap
-        draw_text(buf, x, cy, head, 1, INK)
-        cy += 8
-        draw_text(buf, x, cy, cap, 1, CAPTION)
-        cy += 8
-        cy += 3
-    return cy
+def draw_map(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, (172, 206, 236))
+    for poly in CONTINENTS:
+        pts = []
+        for lon, lat in poly:
+            px = x + int((lon + 180) / 360.0 * w)
+            py = y + int((90 - lat) / 180.0 * h)
+            pts.append((px, py))
+        cv.fill_poly(pts, LAND)
+    for i, (lon, lat, name) in enumerate(MARKERS, 1):
+        px = x + int((lon + 180) / 360.0 * w)
+        py = y + int((90 - lat) / 180.0 * h)
+        cv.fill_circle(px, py, 5, RED)
+        cv.fill_circle(px, py, 2, WHITE)
+        cv.text(px + 7, py - 3, str(i), 1, RED)
+        cv.text(px + 7, py + 5, name, 1, INK)
 
 
-# -------------------------------------------------------------------- page
-PANELS = [
-    {
-        "head": "TANKER WAR IN THE GULF",
-        "sub": "US SINKS FIVE TANKERS",
-        "color": RED,
-        "scene": scene_gulf_wide,
-    },
-    {
-        "head": "KERCH BRIDGE, NIGHT TWO",
-        "sub": "UKRAINE STRIKES AGAIN",
-        "color": NAVY,
-        "scene": scene_kerch_wide,
-    },
-    {
-        "head": "APEC OPENS IN SHENZHEN",
-        "sub": "SUMMIT THURSDAY",
-        "color": TEAL,
-        "scene": scene_shenzhen_wide,
-    },
-    {
-        "head": "COP31 DECISIVE PHASE",
-        "sub": "144 ITEMS LEFT",
-        "color": GREEN,
-        "scene": scene_cop31_wide,
-    },
-]
-
-# Big text card (anchor 5): Peltola wins Alaska.
-BIG_CARD = {
-    "head": "PELTOPA WINS ALASKA",
-    "sub": "DEMOCRATS WIN SENATE",
-    "color": (88, 44, 110),
-    "body": [
-        "FIRST ALASKA NATIVE ELECTED TO THE SENATE.",
-        "BEATS SULLIVAN WITH OVER 50 PCT OF FIRST VOTES.",
-        "MIDTERM SHOCKER SEALS A 56-44 MAJORITY.",
-        "AP AND ALASKA PUBLIC MEDIA CONFIRM RESULT.",
-    ],
-}
-
-# 8 small large-cards (anchors 6-13):
-# (headline <=24 chars, color, caption line 1, caption line 2)
 CARDS = [
-    ("NVIDIA 115.8 BN", NAVY,
-     "RECORD 115.8 BN QUARTER. SHARES FELL 2.89 PCT.",
-     "BOARD SAYS EX-CEO HUANG WILL NOT RETURN."),
-    ("WALL ST FALLS AGAIN", RED,
-     "S AND P 500 DOWN 0.23 PCT, FIFTH LOSS IN A ROW.",
-     "DOW DOWN 1.11 PCT. NASDAQ UP 0.42 PCT."),
-    ("EBOLA DOUBLES", GREEN,
-     "UN: OVER 11,000 CASES AND 5,400 DEATHS IN CONGO",
-     "TWO VACCINE CANDIDATES IN TRIALS."),
-    ("CYCLONE XAVIER", TEAL,
-     "CATEGORY 5 STORM SLAMS THE COOK ISLANDS.",
-     "GUSTS TO 315 KM PER HOUR."),
-    ("DIRTY BOMB REPORT", RED,
-     "TRUMP CALLS REPORT OF IRAN PLOT ON WASHINGTON",
-     "SERIOUS. US LOOKS INTO THE REPORT."),
-    ("GAZA TRUCE AT RISK", NAVY,
-     "BOARD OF PEACE WARNS THE CEASEFIRE MAY COLLAPSE",
-     "WITHOUT ACTION. UN WARNS OF COLD DEATHS."),
-    ("COURT RULES ON MYANMAR", GREEN,
-     "ICJ DECIDES THURSDAY ON ROHINGYA GENOCIDE CASE.",
-     "DECISION DUE THURSDAY 19 NOVEMBER."),
-    ("US TECH OUTAGES", TEAL,
-     "NSA NETWORK DOWN. BANKS HIT. EIGHTH MAJOR",
-     "OUTAGE IN A WEEK. RUBIO: NO CYBERATTACK FOUND."),
+    ("NVIDIA 115.8 BN", ["DATA CENTRE SALES BEAT FORECASTS.",
+                          "BOARD RULES OUT HUANG RETURN."]),
+    ("WALL ST FALLS AGAIN", ["STOCKS DROP FOR A SECOND DAY",
+                             "AS YIELDS RISE."]),
+    ("EBOLA DOUBLES", ["CASES DOUBLE IN CONGO IN THREE MONTHS.",
+                        "TWO VACCINE CANDIDATES IN TRIALS."]),
+    ("CYCLONE XAVIER", ["FIJI BRACES AS STORM STRENGTHENS",
+                         "OFFSHORE."]),
+    ("DIRTY BOMB REPORT", ["CAPITALS ALARMED BY NEW",
+                           "INTELLIGENCE."]),
+    ("GAZA TRUCE AT RISK", ["BOARD OF PEACE WARNS TRUCE",
+                            "COULD COLLAPSE."]),
+    ("COURT RULES ON MYANMAR", ["ASEAN TERMS SET FOR THE",
+                                "GENERALS RETURN."]),
+    ("US TECH OUTAGES", ["CLOUD SERVICES DOWN ACROSS",
+                         "THE STATES."]),
 ]
 
-# (hour UTC, label, above the line?) -- the day's sequence in UTC as
-# reported: overnight strikes, morning summit, afternoon results,
-# evening close. Hours follow the reporting flow, not a stopwatch.
 TIMELINE = [
-    (0, "US SINKS FIVE TANKERS", True),
-    (3, "KERCH HIT AGAIN", False),
-    (8, "XI AND PUTIN MEET", True),
-    (9, "COP31 DRAFT: 144 ITEMS", False),
-    (15, "PELTOPA WINS ALASKA", True),
-    (21, "WALL ST CLOSES LOWER", False),
+    ("00", "KERCH BRIDGE STRUCK"), ("03", "GULF TANKERS SUNK"),
+    ("08", "APEC OPENS"), ("09", "COP31 DECISIVE PHASE"),
+    ("15", "WALL ST FALLS"), ("21", "GAZA TRUCE WARNING"),
 ]
 
-PW = 317   # panel/card width (3 across: 3*317 + 2*12 = 975, x 24..999)
-PH = 172   # scene panel height (header 46 + scene 126)
-HDR = 46   # header strip height inside a panel
-COL_X = [24, 353, 682]
-ROW1_Y = 140
-ROW2_Y = 320
-TL_Y = 498
-CARD_Y = [536, 596, 656]
-CARD_H = 54
-BRIEF_Y = 740
-FOOT_Y = 996
+BRIEFS = [
+    ("KAHANA ELECTED KNESSET SPEAKER", "NEW SPEAKER TAKES THE CHAIR IN JERUSALEM"),
+    ("CARNEY MEETS TRUMP AT APEC", "CANADA AND US TALK TRADE IN SHENZHEN"),
+    ("PATTINSON IS THE NEW JAMES BOND", "007 ROLE GOES TO THE BATMAN STAR"),
+    ("PAKISTAN CUTS PETROL PRICE", "PETROL DOWN RS3 TO RS325 A LITRE"),
+    ("UN WARNS OF COLD DEATHS IN GAZA", "1.7 MILLION DISPLACED FACE WINTER"),
+    ("BAHRAIN INTERCEPTS IRAN ATTACKS", "GULF DEFENCES STOP DRONES OVERNIGHT"),
+    ("SAUDI INTERCEPTS HOUTHI MISSILE", "RIYADH SAYS NO DAMAGE FROM STRIKE"),
+    ("ADNOC SHIP HIT IN HORMUZ", "TANKER DAMAGED AS GULF SHIPPING HALTS"),
+    ("AUSTRALIA SANCTIONS SETTLERS", "CANBERRA ACTS OVER WEST BANK VIOLENCE"),
+    ("IRAQ TELLS MILITIA TO LEAVE", "BAGHDAD ORDERS GROUPS OUT OF CITIES"),
+    ("SUDAN ARMY GAINS IN KORDOFAN", "KHARTOUM PUSHES BACK RSF ADVANCE"),
+    ("NIGERIA STATES GET OWN POLICE", "ABUJA APPROVES STATE POLICE FORCES"),
+    ("WAYMO HALTS FREEWAY ROBOTAXIS", "SELF DRIVING FLEET PULLED AFTER CRASH"),
+    ("NZ TSUNAMI WARNING LIFTED", "ALL CLEAR AFTER PACIFIC QUAKE SCARE"),
+    ("EU ACTS AGAINST TEMU", "BRUSSELS OPENS NEW PROBE INTO MARKETPLACE"),
+    ("NATO PLANS NEW COMMS STRATEGY", "ALLIANCE REBUILDS SECURE NETWORKS"),
+    ("XI AND PUTIN MEET IN SHENZHEN", "TRILATERAL WITH TRUMP SET FOR THURSDAY"),
+    ("TRUMP LANDS IN SHENZHEN", "XI GREETS HIM AT THE AIRPORT"),
+    ("LEE USES APEC TO DEEPEN TIES", "SEOUL AND BEIJING TALK TRADE"),
+    ("RUSSIAN BOMBERS NEAR JAPAN", "TOKYO PROTESTS AIRSPACE VIOLATION CLAIM"),
+    ("UKRAINE SEEKS MORE FIGHTERS", "KYIV ASKS ALLIES FOR JETS AND DEFENCES"),
+    ("RUSSIA HITS KYIV BRIDGES", "KERCH SPAN FALLS AFTER SECOND STRIKE"),
+    ("IRAN FIRES AT US SITES IN KUWAIT", "ALI AL SALEM BASE TARGETED"),
+    ("THIRD US CARRIER REACHES GULF", "WASHINGTON BOLSTERS NAVAL PRESENCE"),
+    ("ARAMCO TOWER DAMAGED IN RIYADH", "DEBRIS FROM ATTACK HITS SKYSCRAPER"),
+    ("HERZOG TAPS EISENKOT TO LEAD", "ISRAEL PRESIDENT NAMES NEW PM CHOICE"),
+    ("ASEAN SETS TERMS FOR MYANMAR", "BLOC LAYS OUT PATH BACK TO THE TABLE"),
+    ("RUSSIA AND UKRAINE AGREE SWAP", "LARGEST POW EXCHANGE SINCE 2022"),
+    ("GERMANY FUNDS PATRIOT MISSILES", "BERLIN PUTS 300M INTO UKRAINE DEFENCE"),
+    ("TURKEY TAKES OPPOSITION TV", "ANKARA SEIZES CONTROL OF BROADCASTER"),
+    ("PAKISTAN EDGE INDIA IN THRILLER", "BLIND CRICKET ASIA CUP FINAL SEALED"),
+    ("US JAILS MAN FOR 27 YEARS", "PLOT TO KILL TRUMP ENDS IN PRISON"),
+    ("UN WARNS ON EU RETURN HUB PLAN", "RIGHTS RISKS SEEN IN RWANDA SCHEME"),
+    ("LEONID METEORS PEAK OVERNIGHT", "ANNUAL SHOWER LIGHTS UP THE SKY"),
+    ("TRAINS COLLIDE NEAR PRAGUE", "46 HURT, 4 CRITICAL AFTER CRASH"),
+    ("POPE CALLS FOR LESS WAR", "PONTIFF SPEAKS AFTER US MIDTERMS"),
+    ("STUDENTS MARCH IN BRUSSELS", "THOUSANDS MARK STUDENTS DAY"),
+    ("DEUTSCHE BANK LEAK SURFACES", "FILES LINK OLIGARCHS AND EPSTEIN"),
+    ("SENATOR DEMANDS CHIP ACTION", "US SEEKS LOOPHOLE FIX ON AI EXPORTS"),
+]
 
 
-def draw_panel(buf, px, py, panel):
-    fill_rect(buf, px, py, PW, PH, WHITE)
-    fill_rect(buf, px, py, PW, 2, INK)
-    fill_rect(buf, px, py + PH - 2, PW, 2, INK)
-    fill_rect(buf, px, py, 2, PH, INK)
-    fill_rect(buf, px + PW - 2, py, 2, PH, INK)
-    fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, panel["color"])
-    draw_text(buf, px + 12, py + 8, panel["head"], 2, WHITE)
-    draw_text(buf, px + 12, py + 26, panel["sub"], 2, CREAM)
-    blit_scaled_wide(buf, panel["scene"], px + 2, py + HDR, PW - 4,
-                     PH - HDR)
+def draw_small_card(cv, x, y, w, h, title, lines):
+    cv.fill_rect(x, y, w, h, WHITE)
+    cv.border(x, y, w, h, INK)
+    cv.fill_rect(x + 1, y + 1, w - 2, 14, RED)
+    cv.text(x + 6, y + 4, title, 1, WHITE)
+    cv.text(x + 6, y + 20, lines[0], 1, INK)
+    cv.text(x + 6, y + 30, lines[1], 1, INK)
 
 
-def draw_map_panel(buf, px, py):
-    fill_rect(buf, px, py, PW, PH, WHITE)
-    fill_rect(buf, px, py, PW, 2, INK)
-    fill_rect(buf, px, py + PH - 2, PW, 2, INK)
-    fill_rect(buf, px, py, 2, PH, INK)
-    fill_rect(buf, px + PW - 2, py, 2, PH, INK)
-    fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, NAVY)
-    draw_text(buf, px + 12, py + 8, "THE WORLD AT A GLANCE", 2, WHITE)
-    draw_text(buf, px + 12, py + 26, "STORIES MARKED IN RED", 2, CREAM)
-    draw_map(buf, px + 2, py + HDR, PW - 4, PH - HDR)
+def png_bytes(buf, w, h):
+    raw = bytearray()
+    stride = w * 3
+    for yy in range(h):
+        raw.append(0)
+        raw += buf[yy * stride:(yy + 1) * stride]
+    comp = zlib.compress(bytes(raw), 9)
 
+    def chunk(t, data):
+        out = struct.pack(">I", len(data)) + t + data
+        out += struct.pack(">I", zlib.crc32(t + data) & 0xFFFFFFFF)
+        return out
 
-def draw_big_card(buf, px, py):
-    card = BIG_CARD
-    fill_rect(buf, px, py, PW, PH, WHITE)
-    fill_rect(buf, px, py, PW, 2, INK)
-    fill_rect(buf, px, py + PH - 2, PW, 2, INK)
-    fill_rect(buf, px, py, 2, PH, INK)
-    fill_rect(buf, px + PW - 2, py, 2, PH, INK)
-    fill_rect(buf, px + 2, py + 2, PW - 4, HDR - 2, card["color"])
-    draw_text(buf, px + 12, py + 8, card["head"], 2, WHITE)
-    draw_text(buf, px + 12, py + 26, card["sub"], 2, CREAM)
-    cy = py + HDR + 10
-    for line in card["body"]:
-        assert text_width(line, 1) <= PW - 24, line
-        draw_text(buf, px + 12, cy, line, 1, INK)
-        cy += 12
-    fill_rect(buf, px + 12, py + PH - 26, PW - 24, 2, card["color"])
-    draw_text(buf, px + 12, py + PH - 20, "ALASKA SENATE RACE", 1, GREY)
-
-
-def draw_small_card(buf, px, py, card):
-    head, color, cap1, cap2 = card
-    assert text_width(head, 2) <= PW - 20, head
-    assert text_width(cap1, 1) <= PW - 20, cap1
-    assert text_width(cap2, 1) <= PW - 20, cap2
-    fill_rect(buf, px, py, PW, CARD_H, WHITE)
-    fill_rect(buf, px, py, PW, 2, INK)
-    fill_rect(buf, px, py + CARD_H - 2, PW, 2, INK)
-    fill_rect(buf, px, py, 2, CARD_H, INK)
-    fill_rect(buf, px + PW - 2, py, 2, CARD_H, INK)
-    fill_rect(buf, px + 2, py + 2, PW - 4, 20, color)
-    draw_text(buf, px + 10, py + 5, head, 2, WHITE)
-    draw_text(buf, px + 10, py + 26, cap1, 1, INK)
-    draw_text(buf, px + 10, py + 35, cap2, 1, CAPTION)
-
-
-def draw_timeline(buf):
-    y0 = TL_Y
-    draw_text(buf, 24, y0, "THE DAY IN UTC", 1, GREY)
-    line_y = y0 + 22
-    draw_line(buf, 24, line_y, 1000, line_y, INK, 2)
-    for hour in (0, 6, 12, 18, 24):
-        tx = 24 + hour * 976 // 24
-        fill_rect(buf, tx - 1, line_y - 5, 2, 10, INK)
-        lab = "%02d" % hour
-        lx = max(24, min(1000 - 11, tx - 6))
-        draw_text(buf, lx, line_y + 8, lab, 1, GREY)
-    draw_text(buf, 1000 - text_width("UTC", 1), y0, "UTC", 1, GREY)
-    for hour, label, above in TIMELINE:
-        ex = 24 + hour * 976 // 24
-        fill_circle(buf, ex, line_y, 4, RED)
-        fill_circle(buf, ex, line_y, 2, WHITE)
-        lw = text_width(label, 1)
-        lx = max(24, min(1000 - lw, ex - lw // 2))
-        ly = line_y - 14 if above else line_y + 20
-        draw_text(buf, lx, ly, label, 1, INK)
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", comp) + chunk(b"IEND", b""))
 
 
 def render():
-    buf = new_buf()
-    # masthead
-    draw_text_centered(buf, W // 2, 24, "THE WORLD", 8, INK)
-    draw_text_centered(buf, W // 2, 88, "WEDNESDAY 18 NOVEMBER 2026", 3,
-                       INK)
-    fill_rect(buf, 24, 118, W - 48, 4, INK)
-    fill_rect(buf, 24, 126, W - 48, 2, INK)
-    # row 1: three wide scene panels
-    for panel, px in zip(PANELS[:3], COL_X):
-        draw_panel(buf, px, ROW1_Y, panel)
-    # row 2: COP31 scene, map panel, big text card
-    draw_panel(buf, COL_X[0], ROW2_Y, PANELS[3])
-    draw_map_panel(buf, COL_X[1], ROW2_Y)
-    draw_big_card(buf, COL_X[2], ROW2_Y)
-    # UTC timeline strip
-    draw_timeline(buf)
-    # 8 small large-cards, 3 columns x 3 rows (3, 3, 2)
-    for i, card in enumerate(CARDS):
-        draw_small_card(buf, COL_X[i % 3], CARD_Y[i // 3], card)
-    # briefs header + 7-region coverage line
-    draw_text(buf, 24, 716, "THE DAY IN BRIEF", 2, INK)
-    cov = ("7 REGIONS: N. AMERICA, S. AMERICA, EUROPE, AFRICA, "
-           "MIDDLE EAST, ASIA, OCEANIA")
-    draw_text(buf, 1000 - text_width(cov, 1), 719, cov, 1, GREY)
-    fill_rect(buf, 24, 734, W - 48, 2, INK)
-    # bottom band: 39 briefs, 13 per column
-    for col in range(3):
-        end = draw_briefs_strict(buf, COL_X[col], BRIEF_Y, PW,
-                                 BRIEFS[col * 13:(col + 1) * 13])
-        assert end <= 992, end
-    # footer
-    draw_text_centered(buf, W // 2, FOOT_Y, "52 STORIES, ONE DAY", 2, GREY)
-    return buf
+    cv = Canvas(W, H, PAPER)
+    cv.text_c(W // 2, 12, "THE WORLD", 7, INK)
+    cv.text_c(W // 2, 66, "WEDNESDAY 18 NOVEMBER 2026", 2, INK)
+    cv.text_c(W // 2, 86, "TANKER WAR IN THE GULF. KERCH STRUCK AGAIN. APEC OPENS IN SHENZHEN.", 1, GREY)
+    cv.fill_rect(24, 100, W - 48, 3, INK)
 
+    scenes = (("GULF TANKER WAR", scene_gulf), ("KERCH BRIDGE", scene_kerch),
+              ("APEC SHENZHEN", scene_shenzhen), ("COP31 ANTALYA", scene_cop31))
+    for i, (title, fn) in enumerate(scenes):
+        x = 24 + i * 246
+        sx, sy, sw, sh = panel(cv, x, 112, 238, 172, title)
+        fn(cv, sx, sy, sw, sh)
 
-# ---------------------------------------------------------------------- PNG
-def chunk(ctype, data):
-    out = struct.pack(">I", len(data)) + ctype + data
-    out += struct.pack(">I", zlib.crc32(ctype + data) & 0xFFFFFFFF)
-    return out
+    mx, my, mw, mh = panel(cv, 24, 292, 500, 170, "WORLD MAP", DARKBLUE)
+    draw_map(cv, mx, my, mw, mh)
 
+    px, py, pw, ph = panel(cv, 532, 292, 232, 170, "PELTOLA WINS", RED)
+    cv.text(px + 8, py + 10, "PELTOLA WINS", 2, INK)
+    cv.text(px + 8, py + 28, "ALASKA", 2, INK)
+    cv.text(px + 8, py + 52, "DEMOCRATS TAKE SENATE 56-44", 1, RED)
+    cv.text(px + 8, py + 68, "MARY PELTOLA BEATS DAN SULLIVAN.", 1, INK)
+    cv.text(px + 8, py + 79, "AP CALLS THE RACE FOR ALASKA.", 1, INK)
+    cv.fill_rect(px + 8, py + 98, pw - 16, 2, INK)
+    cv.text(px + 8, py + 108, "FIRST DEMOCRAT TO WIN THE SEAT", 1, GREY)
+    cv.text(px + 8, py + 119, "IN 50 YEARS.", 1, GREY)
 
-def encode_png(buf):
-    raw = bytearray()
-    for yy in range(H):
-        raw.append(0)  # filter: none
-        raw += buf[yy * W * 3:(yy + 1) * W * 3]
-    ihdr = struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)
-    return (b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", ihdr)
-            + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
-            + chunk(b"IEND", b""))
+    nx, ny, nw, nh = panel(cv, 772, 292, 228, 170, "BY THE NUMBERS", INK)
+    stats = [("144", "COP31 ITEMS DISPUTED"), ("56-44", "SENATE SPLIT"),
+             ("115.8", "NVIDIA BN REVENUE"), ("5", "TANKERS SUNK")]
+    for i, (num, lab) in enumerate(stats):
+        yy = ny + 8 + i * 34
+        cv.text(nx + 8, yy, num, 2, RED)
+        cv.text(nx + 8 + cv.text_w(num, 2) + 10, yy + 4, lab, 1, INK)
+
+    cv.text(24, 470, "THE DAY IN TIME", 1, INK)
+    cv.fill_rect(24, 488, W - 48, 2, INK)
+    for i, (hh, ev) in enumerate(TIMELINE):
+        tx = 60 + i * 162
+        cv.fill_rect(tx, 480, 2, 18, RED)
+        cv.text_c(tx + 1, 500, hh, 1, RED)
+        cv.text_c(tx + 1, 510, ev, 1, INK)
+
+    for i, (title, lines) in enumerate(CARDS):
+        row, col = divmod(i, 3)
+        x = 24 + col * 328
+        y = 536 + row * 60
+        draw_small_card(cv, x, y, 320, 54, title, lines)
+
+    cv.text(24, 724, "THE DAY IN BRIEF", 2, INK)
+    cv.text(24, 744, "7 REGIONS: N. AMERICA, S. AMERICA, EUROPE, AFRICA, MIDDLE EAST, ASIA, OCEANIA", 1, GREY)
+    for i, (head, cap) in enumerate(BRIEFS):
+        if len(head) > 52 or len(cap) > 52:
+            raise ValueError("brief too long: %r / %r" % (head, cap))
+        col, row = divmod(i, 13)
+        bx = 24 + col * 328
+        by = 758 + row * 18
+        cv.text(bx, by, head, 1, INK)
+        cv.text(bx, by + 8, cap, 1, (70, 68, 60))
+    cv.fill_rect(24, 996, W - 48, 1, INK)
+    cv.text_c(W // 2, 1002, "52 STORIES, ONE DAY", 2, INK)
+    return cv
 
 
 def main():
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    png = encode_png(render())
-    path = os.path.join(out_dir, "entry.png")
-    with open(path, "wb") as f:
-        f.write(png)
+    import sys
+    out = sys.argv[1] if len(sys.argv) > 1 else "output.png"
+    if len(BRIEFS) != 39 or len(CARDS) != 8 or len(TIMELINE) != 6:
+        raise ValueError("story counts wrong: %d briefs, %d cards, %d timeline"
+                         % (len(BRIEFS), len(CARDS), len(TIMELINE)))
+    cv = render()
+    data = png_bytes(cv.buf, W, H)
+    with open(out, "wb") as f:
+        f.write(data)
+    import hashlib
+    print("wrote %s %d bytes sha256 %s" % (out, len(data), hashlib.sha256(data).hexdigest()))
 
 
 if __name__ == "__main__":
